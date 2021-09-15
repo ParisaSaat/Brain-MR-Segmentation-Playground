@@ -39,10 +39,11 @@ class CC359(MRI2DSegmentationDataset):
         self.filename_pairs = []
 
         for file_id in self.file_ids:
-            img_filename = self._build_train_input_filename(file_id)
-            gt_filename = self._build_train_input_filename(file_id, True)
+            img_filename = self._build_input_filename(file_id)
+            gt_filename = self._build_input_filename(file_id, True)
 
             img_filename = os.path.join(self.img_root_dir, img_filename)
+            # print('file_id:', file_id, 'img_filename:', img_filename)
             gt_filename = os.path.join(self.gt_root_dir, gt_filename)
 
             if not self.labeled:
@@ -54,7 +55,7 @@ class CC359(MRI2DSegmentationDataset):
                          transform, slice_filter_fn, canonical)
 
     @staticmethod
-    def _build_train_input_filename(file_id, mask=False):
+    def _build_input_filename(file_id, mask=False):
         if not mask:
             return "{id}.nii.gz".format(id=file_id)
         else:
