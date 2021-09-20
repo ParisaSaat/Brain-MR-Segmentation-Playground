@@ -28,10 +28,8 @@ def main():
 
     start_time = time.time()
 
-    tags = [0, 1, 2]
-
-    for tt in tags:
-        load_dataset(opt.imgs_dir, opt.masks_dir, tt, opt.batch_size, opt.num_workers)
+    tag = 0
+    load_dataset(opt.imgs_dir, opt.masks_dir, tag, opt.batch_size, opt.num_workers)
 
     print("--- %s seconds ---" % (time.time() - start_time))
 
