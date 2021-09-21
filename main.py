@@ -1,6 +1,11 @@
-import argparse, time
+import argparse
+import time
 
-from data.utils import load_dataset
+from torch import Generator
+from torch.utils.data import random_split
+
+from config import Plane, TRAIN_RATIO
+from data.utils import get_dataset, load_dataset
 
 
 def main():
@@ -28,8 +33,12 @@ def main():
 
     start_time = time.time()
 
-    tag = 0
-    load_dataset(opt.imgs_dir, opt.masks_dir, tag, opt.batch_size, opt.num_workers)
+    tag = Plane.SAGITTAL.value
+    dataset = get_dataset(opt.imgs_dir, opt.masks_dir, tag)
+    train_dataset, test_dataset = random_split(dataset, [TRAIN_RATIO * len(dataset), (1 - TRAIN_RATIO) * len(dataset)],
+                                               generator=Generator().manual_seed(42))
+    train_data_loader = load_dataset(train_dataset, opt.batch_size, opt.num_workers)
+    test_data_loader = load_dataset(test_dataset, opt.batch_size, opt.num_workers)
 
     print("--- %s seconds ---" % (time.time() - start_time))
 

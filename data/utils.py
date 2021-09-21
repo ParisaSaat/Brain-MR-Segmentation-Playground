@@ -1,13 +1,13 @@
+from os import listdir
+
 import medicaltorch.datasets as mt_datasets
 import medicaltorch.filters as mt_filters
 import medicaltorch.transforms as mt_transforms
+import numpy as np
 import torchvision as tv
 from torch.utils.data import DataLoader
-import numpy as np
-from os import listdir
 
 from data.dataset import CC359
-
 
 ''' Get interval where data is non-zero in the volume'''
 
@@ -29,11 +29,14 @@ def get_min_max_brain_interval(img_slice):
     return min_idx, max_idx
 
 
-def load_dataset(img_root_dir, gt_root_dir, slice_axis, batch_size, num_workers):
+def get_dataset(img_root_dir, gt_root_dir, slice_axis):
     file_ids = [file_name.split('.')[0] for file_name in listdir(img_root_dir) if not file_name.startswith('.')]
     dataset = CC359(img_root_dir=img_root_dir, gt_root_dir=gt_root_dir, slice_axis=slice_axis,
                     slice_filter_fn=mt_filters.SliceFilter(), file_ids=file_ids)
+    return dataset
 
+
+def load_dataset(dataset, batch_size, num_workers):
     # data augmentation
     transform = tv.transforms.Compose([
         mt_transforms.CenterCrop2D(get_min_max_brain_interval),
