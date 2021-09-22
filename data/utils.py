@@ -48,12 +48,16 @@ def patch_data(dataset, patch_size, max_patches):
         images_patches[i * max_patches:max_patches * (i + 1)] = image_patches
         masks_patches[i * max_patches:max_patches * (i + 1)] = mask_patches
 
-    dataset.set_transform(transform)
+    return images_patches, masks_patches
 
-    data_loader = DataLoader(dataset, batch_size=batch_size,
-                             shuffle=True, drop_last=True,
-                             num_workers=num_workers,
-                             collate_fn=mt_datasets.mt_collate,
-                             pin_memory=True)
 
-    return data_loader
+def save_patches(images_patches, masks_patches, images_patches_path, masks_patches_path):
+    np.save(images_patches_path + '.npy', images_patches.astype(np.float32))
+    np.save(masks_patches_path + '.npy', masks_patches.astype(np.uint8))
+
+
+def convert_array_to_dataset(x_arr, y_arr):
+    x_tensor = torch.tensor(x_arr)
+    y_tensor = torch.tensor(y_arr)
+    dataset = TensorDataset(x_tensor, y_tensor)
+    return dataset
