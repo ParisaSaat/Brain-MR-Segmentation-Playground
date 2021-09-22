@@ -9,7 +9,12 @@ from tensorboardX import SummaryWriter
 
 
 from config import Plane, TRAIN_RATIO
-from data.utils import get_dataset, load_dataset
+from data.utils import get_dataset, patch_data, convert_array_to_dataset
+from models.baseline import Unet
+
+
+def train(model, dataloader):
+    pass
 
 
 def main():
@@ -47,8 +52,18 @@ def main():
     print(len(dataset), train_set_size, test_set_size)
     train_dataset, test_dataset = random_split(dataset, [train_set_size, test_set_size],
                                                generator=Generator().manual_seed(42))
-    train_data_loader = load_dataset(train_dataset, opt.batch_size, opt.num_workers)
-    test_data_loader = load_dataset(test_dataset, opt.batch_size, opt.num_workers)
+    train_images_patches, train_masks_patches = patch_data(train_dataset, patch_size, opt.max_patches)
+    train_dataset = convert_array_to_dataset(train_images_patches, train_masks_patches)
+    train_dataloader = DataLoader(train_dataset, batch_size=opt.batch_size,
+                                  shuffle=True, drop_last=True,
+                                  num_workers=opt.num_workers,
+                                  pin_memory=True)
+    model = Unet(drop_rate=opt.drop_rate, bn_momentum=opt.bn_momentum)
+    model.cuda()
+    optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, weight_decay=opt.decay)
+    writer = SummaryWriter(log_dir="log_{}".format(opt.experiment_name))
+    train(model, train_dataloader)
+    model.train()
 
     print("--- %s seconds ---" % (time.time() - start_time))
 
