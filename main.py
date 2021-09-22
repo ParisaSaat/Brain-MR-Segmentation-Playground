@@ -31,6 +31,9 @@ def main():
 
     patch_size = opt.patch_size_row, opt.patch_size_col
 
+    if torch.cuda.is_available():
+        torch.cuda.set_device("cuda:0")
+
     start_time = time.time()
 
     tag = Plane.SAGITTAL.value
