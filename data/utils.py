@@ -9,25 +9,6 @@ from torch.utils.data import DataLoader
 
 from data.dataset import CC359
 
-''' Get interval where data is non-zero in the volume'''
-
-
-def get_min_max_brain_interval(img_slice):
-    min_idx = max_idx = np.asarray([])
-    check = aux = i = 0
-
-    if img_slice.sum() == 0:
-        if aux != 0:
-            max_idx = aux - 1
-        i += 1
-    else:
-        if aux == 0:
-            min_idx = i
-            aux = i
-        aux += 1
-    print(min_idx, max_idx)
-    return min_idx, max_idx
-
 
 def get_dataset(img_root_dir, gt_root_dir, slice_axis):
     file_ids = [file_name.split('.')[0] for file_name in listdir(img_root_dir) if not file_name.startswith('.')]
