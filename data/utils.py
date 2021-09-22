@@ -1,6 +1,5 @@
 from os import listdir
 
-import medicaltorch.datasets as mt_datasets
 import medicaltorch.filters as mt_filters
 import medicaltorch.transforms as mt_transforms
 import numpy as np
