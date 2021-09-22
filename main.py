@@ -1,8 +1,12 @@
 import argparse
+import math
 import time
 
+import torch
 from torch import Generator
-from torch.utils.data import random_split
+from torch.utils.data import random_split, DataLoader
+from tensorboardX import SummaryWriter
+
 
 from config import Plane, TRAIN_RATIO
 from data.utils import get_dataset, load_dataset
@@ -38,7 +42,10 @@ def main():
 
     tag = Plane.SAGITTAL.value
     dataset = get_dataset(opt.imgs_dir, opt.masks_dir, tag)
-    train_dataset, test_dataset = random_split(dataset, [TRAIN_RATIO * len(dataset), (1 - TRAIN_RATIO) * len(dataset)],
+    train_set_size = math.ceil(TRAIN_RATIO * len(dataset))
+    test_set_size = len(dataset) - train_set_size
+    print(len(dataset), train_set_size, test_set_size)
+    train_dataset, test_dataset = random_split(dataset, [train_set_size, test_set_size],
                                                generator=Generator().manual_seed(42))
     train_data_loader = load_dataset(train_dataset, opt.batch_size, opt.num_workers)
     test_data_loader = load_dataset(test_dataset, opt.batch_size, opt.num_workers)
