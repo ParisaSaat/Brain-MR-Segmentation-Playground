@@ -10,14 +10,14 @@ do
 done
 
 
-mkdir -p $root_path/source_images
-mkdir -p $root_path/source_masks
-mkdir -p $root_path/target_images
-mkdir -p $root_path/target_masks
+mkdir -p $root_path/source/images
+mkdir -p $root_path/source/masks
+mkdir -p $root_path/target/images
+mkdir -p $root_path/target/masks
 
 
-cp $images_path/*_15_* $root_path/source_images
-cp $masks_path/*_15_* $root_path/source_masks
-cp $images_path/*_3_* $root_path/target_images
-cp $masks_path/*_3_* $root_path/target_masks
+cp $images_path/*_15_* $root_path/source/images
+cp $masks_path/*_15_* $root_path/source/masks
+cp $images_path/*_3_* $root_path/target/images
+cp $masks_path/*_3_* $root_path/target/masks
 
