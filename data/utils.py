@@ -51,7 +51,7 @@ def patch_data(dataset, patch_size, max_patches):
 
 
 def save_patches(images_patches, masks_patches, images_patches_path, masks_patches_path):
-    makedirs(NPY_ROOT)
+    makedirs(NPY_ROOT, exist_ok=True)
     np.save(images_patches_path, images_patches.astype(np.float32))
     np.save(masks_patches_path, masks_patches.astype(np.uint8))
 
