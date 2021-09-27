@@ -47,6 +47,7 @@ def preprocess(opt):
     makedirs(SOURCE_TRAIN_MASKS_PATH, exist_ok=True)
     makedirs(SOURCE_TEST_IMAGES_PATH, exist_ok=True)
     makedirs(SOURCE_TEST_MASKS_PATH, exist_ok=True)
+
     for file_id in train_files:
         shutil.copy(path.join(opt.imgs_dir, IMAGE_FILE_TEMPLATE.format(file_id=file_id)), SOURCE_TRAIN_IMAGES_PATH)
         shutil.copy(path.join(opt.masks_dir, MASK_FILE_TEMPLATE.format(file_id=file_id)), SOURCE_TRAIN_MASKS_PATH)
@@ -58,9 +59,10 @@ def preprocess(opt):
     test_dataset = get_dataset(SOURCE_TEST_IMAGES_PATH, SOURCE_TEST_MASKS_PATH, test_files, tag)
     print('train dataset size:', len(train_dataset))
     print('test dataset size:', len(test_dataset))
-    train_images_patches, train_masks_patches = patch_data(train_dataset, patch_size, opt.max_patches)
 
+    train_images_patches, train_masks_patches = patch_data(train_dataset, patch_size, opt.max_patches)
     test_images_patches, test_masks_patches = patch_data(test_dataset, patch_size, opt.max_patches)
+
     save_patches(train_images_patches, train_masks_patches, TRAIN_IMAGES_PATCHES_PATH, TRAIN_MASKS_PATCHES_PATH)
     save_patches(test_images_patches, test_masks_patches, TEST_IMAGES_PATCHES_PATH, TEST_MASKS_PATCHES_PATH)
 
