@@ -1,5 +1,11 @@
 import argparse
 
+import numpy as np
+from torch.utils.data import DataLoader
+
+from config.io import *
+from data.utils import convert_array_to_dataset
+
 
 def create_parser():
     parser = argparse.ArgumentParser()
@@ -17,8 +23,17 @@ def create_parser():
     return opt
 
 
+def load_train_data(batch_size, num_workers):
+    train_images_patches = np.load(TRAIN_IMAGES_PATCHES_PATH)
+    train_masks_patches = np.load(TRAIN_MASKS_PATCHES_PATH)
+    train_dataset = convert_array_to_dataset(train_images_patches, train_masks_patches)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True,
+                                  num_workers=num_workers, pin_memory=True)
+    return train_dataloader
+
+
 def train(opt):
-    pass
+    train_dataloader = load_train_data(opt.batch_size, opt.num_workers)
 
 
 if __name__ == '__main__':
