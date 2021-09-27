@@ -7,4 +7,4 @@ class Plane(Enum):
     CORONAL = 2
 
 
-TRAIN_RATIO = 0.8
+TEST_RATIO = 0.2
