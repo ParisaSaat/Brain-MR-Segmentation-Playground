@@ -1,7 +1,9 @@
 import argparse
 import time
+from collections import defaultdict
 
 import medicaltorch.losses as mt_losses
+import medicaltorch.metrics as mt_metrics
 import numpy as np
 import torch
 import torchvision.utils as vutils
@@ -10,7 +12,7 @@ from torch.utils.data import DataLoader
 from tqdm import *
 
 from config.io import *
-from config.param import GAMMA, LAMBDA
+from config.param import LAMBDA
 from data.utils import convert_array_to_dataset
 from models.baseline import Unet
 
@@ -26,7 +28,6 @@ def create_parser():
     parser.add_argument('-decay', type=float, default=0.995, help='learning rate of the optimizer')
     parser.add_argument('-validation_split', type=float, default=0.1, help='validation split for training')
     parser.add_argument('-patience', type=int, default=10, help='early stopping patience')
-    parser.add_argument('-consistency_loss', type=str, default='dice', help='consistency loss')
     parser.add_argument('-drop_rate', type=float, default=0.5, help='model drop rate')
     parser.add_argument('-write_images_interval', type=int, default=20, help='write sample images in every interval')
     parser.add_argument('-write_images', type=bool, default=True, help='write sample images')
@@ -59,31 +60,73 @@ def get_current_consistency_weight(weight, epoch, rampup):
     return weight * sigmoid_rampup(epoch, rampup)
 
 
-def load_train_data(batch_size, num_workers):
-    train_images_patches = np.load(TRAIN_IMAGES_PATCHES_PATH)
-    train_masks_patches = np.load(TRAIN_MASKS_PATCHES_PATH)
-    train_dataset = convert_array_to_dataset(train_images_patches, train_masks_patches)
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True,
-                                  num_workers=num_workers, pin_memory=True)
-    return train_dataloader
+def load_data_patches(img_path, msk_path, batch_size, num_workers):
+    images_patches = np.load(img_path)
+    masks_patches = np.load(msk_path)
+    dataset = convert_array_to_dataset(images_patches, masks_patches)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=num_workers,
+                            pin_memory=True)
+    return dataloader
+
+
+def validation(model, loader, writer, metric_fns, epoch, prefix):
+    val_loss = 0.0
+
+    num_samples = 0
+    num_steps = 0
+
+    result_dict = defaultdict(float)
+
+    for i, batch in enumerate(loader):
+        image_data, mask_data = batch["input"], batch["gt"]
+
+        image_data_gpu = image_data.cuda()
+        mask_data_gpu = image_data.cuda()
+
+        with torch.no_grad():
+            model_out = model(image_data_gpu)
+            val_class_loss = mt_losses.dice_loss(model_out, mask_data_gpu)
+            val_loss += val_class_loss.item()
+
+        masks = mask_data_gpu.cpu().numpy().astype(np.uint8)
+        masks = masks.squeeze(axis=1)
+
+        preds = model_out.cpu().numpy()
+        preds = preds.squeeze(axis=1)
+
+        for metric_fn in metric_fns:
+            for prediction, mask in zip(preds, masks):
+                res = metric_fn(prediction, mask)
+                dict_key = 'val_{}'.format(metric_fn.__name__)
+                result_dict[dict_key] += res
+
+        num_samples += len(preds)
+        num_steps += 1
+
+    val_loss_avg = val_loss / num_steps
+
+    for key, val in result_dict.items():
+        result_dict[key] = val / num_samples
+
+    writer.add_scalars(prefix + '_losses', {prefix + '_loss': val_loss_avg}, epoch)
+    writer.add_scalars(prefix + '_metrics', result_dict, epoch)
 
 
 def train(opt):
     if torch.cuda.is_available():
         torch.cuda.set_device("cuda:0")
 
-    train_dataloader = load_train_data(opt.batch_size, opt.num_workers)
+    train_dataloader = load_data_patches(TRAIN_IMAGES_PATCHES_PATH, TRAIN_MASKS_PATCHES_PATH, opt.batch_size,
+                                         opt.num_workers)
+    valid_dataloader = load_data_patches(TEST_IMAGES_PATCHES_PATH, TEST_MASKS_PATCHES_PATH, opt.batch_size,
+                                         opt.num_workers)
 
     model = Unet(drop_rate=opt.drop_rate, bn_momentum=opt.bn_momentum)
     model.cuda()
 
     optimizer = torch.optim.Adam(model.parameters(), weight_decay=LAMBDA, lr=opt.initial_lr)
-    lr_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=GAMMA, verbose=True)
     initial_lr = opt.initial_lr
     num_epochs = opt.num_epochs
-
-    if opt.consistency_loss == "dice":
-        consistency_loss_fn = mt_losses.dice_loss
 
     writer = SummaryWriter(log_dir="log_{}".format(opt.experiment_name))
 
@@ -143,6 +186,17 @@ def train(opt):
                 writer.add_image('Train Source Ground Truth', plot_img, epoch)
             except:
                 tqdm.write("*** Error writing images ***")
+
+        writer.add_scalars('losses', {'loss': loss_avg}, epoch)
+
+        model.eval()
+
+        metric_fns = [mt_metrics.dice_score, mt_metrics.jaccard_score, mt_metrics.hausdorff_score,
+                      mt_metrics.precision_score, mt_metrics.recall_score,
+                      mt_metrics.specificity_score, mt_metrics.intersection_over_union,
+                      mt_metrics.accuracy_score]
+
+        validation(model, valid_dataloader, writer, metric_fns, epoch, opt)
 
         end_time = time.time()
         total_time = end_time - start_time
