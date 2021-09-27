@@ -11,8 +11,7 @@ from torch.utils.data import TensorDataset
 from data.dataset import CC359
 
 
-def get_dataset(img_root_dir, gt_root_dir, slice_axis):
-    file_ids = [file_name.split('.')[0] for file_name in listdir(img_root_dir) if not file_name.startswith('.')]
+def get_dataset(img_root_dir, gt_root_dir, file_ids, slice_axis):
     dataset = CC359(img_root_dir=img_root_dir, gt_root_dir=gt_root_dir, slice_axis=slice_axis,
                     slice_filter_fn=mt_filters.SliceFilter(), file_ids=file_ids)
     transform = tv.transforms.Compose([
