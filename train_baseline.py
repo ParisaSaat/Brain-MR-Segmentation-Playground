@@ -4,6 +4,7 @@ import time
 import medicaltorch.losses as mt_losses
 import numpy as np
 import torch
+import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import *
@@ -26,7 +27,9 @@ def create_parser():
     parser.add_argument('-validation_split', type=float, default=0.1, help='validation split for training')
     parser.add_argument('-patience', type=int, default=10, help='early stopping patience')
     parser.add_argument('-consistency_loss', type=str, default='dice', help='consistency loss')
-    parser.add_argument('-drop_rate', type=int, default=0.5, help='model drop rate')
+    parser.add_argument('-drop_rate', type=float, default=0.5, help='model drop rate')
+    parser.add_argument('-write_images_interval', type=int, default=20, help='write sample images in every interval')
+    parser.add_argument('-write_images', type=bool, default=True, help='write sample images')
 
     opt = parser.parse_args()
     return opt
@@ -100,6 +103,50 @@ def train(opt):
             param_group['lr'] = lr
 
         model.train()
+
+        loss_total = 0.0
+
+        num_steps = 0
+
+        for i, train_batch in enumerate(train_dataloader):
+            train_image, train_mask = train_batch["input"], train_batch["gt"]
+            train_image = train_image.cuda()
+            train_mask = train_mask.cuda()
+            prediction = model(train_image)
+            loss = mt_losses.dice_loss(prediction, train_mask)
+            optimizer.zero_grad()
+            loss.backward()
+
+            optimizer.step()
+
+            loss_total += loss.item()
+
+            num_steps += 1
+
+        npy_prediction = prediction.detach().cpu().numpy()
+        writer.add_histogram("Prediction Hist", npy_prediction, epoch)
+
+        loss_avg = loss_total / num_steps
+
+        tqdm.write("Steps p/ Epoch: {}".format(num_steps))
+        tqdm.write("Class Loss: {:.6f}".format(loss_avg))
+
+        if opt.write_images and epoch % opt.write_images_interval == 0:
+            try:
+                plot_img = vutils.make_grid(prediction, normalize=True, scale_each=True)
+                writer.add_image('Train Source Prediction', plot_img, epoch)
+
+                plot_img = vutils.make_grid(train_image, normalize=True, scale_each=True)
+                writer.add_image('Train Source Input', plot_img, epoch)
+
+                plot_img = vutils.make_grid(train_mask, normalize=True, scale_each=True)
+                writer.add_image('Train Source Ground Truth', plot_img, epoch)
+            except:
+                tqdm.write("*** Error writing images ***")
+
+        end_time = time.time()
+        total_time = end_time - start_time
+        tqdm.write("Epoch {} took {:.2f} seconds.".format(epoch, total_time))
 
 
 if __name__ == '__main__':
