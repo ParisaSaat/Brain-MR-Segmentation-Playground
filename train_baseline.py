@@ -1,10 +1,17 @@
 import argparse
+import time
 
+import medicaltorch.losses as mt_losses
 import numpy as np
+import torch
+from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
+from tqdm import *
 
 from config.io import *
+from config.param import GAMMA, LAMBDA
 from data.utils import convert_array_to_dataset
+from models.baseline import Unet
 
 
 def create_parser():
@@ -13,14 +20,40 @@ def create_parser():
     parser.add_argument('-num_workers', type=int, default=16, help='number of workers')
     parser.add_argument('-num_epochs', type=int, default=1, help='number of epochs to train for')
     parser.add_argument('-experiment_name', type=str, default='', help='experiment name')
-    parser.add_argument('-lr', type=float, default=1e-3, help='learning rate of the optimizer')
+    parser.add_argument('-initial_lr', type=float, default=1e-3, help='learning rate of the optimizer')
+    parser.add_argument('-initial_lr_rampup', type=float, default=50, help='initial learning rate rampup')
     parser.add_argument('-decay', type=float, default=0.995, help='learning rate of the optimizer')
     parser.add_argument('-validation_split', type=float, default=0.1, help='validation split for training')
     parser.add_argument('-patience', type=int, default=10, help='early stopping patience')
-    parser.add_argument('-consistency_loss', type=int, default=3, help='consistency loss')
+    parser.add_argument('-consistency_loss', type=str, default='dice', help='consistency loss')
+    parser.add_argument('-drop_rate', type=int, default=0.5, help='model drop rate')
 
     opt = parser.parse_args()
     return opt
+
+
+def cosine_rampdown(current, rampdown_length):
+    """Cosine rampdown from https://arxiv.org/abs/1608.03983"""
+    assert 0 <= current <= rampdown_length
+    return float(.5 * (np.cos(np.pi * current / rampdown_length) + 1))
+
+
+def cosine_lr(current_epoch, num_epochs, initial_lr):
+    return initial_lr * cosine_rampdown(current_epoch, num_epochs)
+
+
+def sigmoid_rampup(current, rampup_length):
+    if rampup_length == 0:
+        return 1.0
+    else:
+        current = np.clip(current, 0.0, rampup_length)
+        phase = 1.0 - current / rampup_length
+        return float(np.exp(-5.0 * phase * phase))
+
+
+def get_current_consistency_weight(weight, epoch, rampup):
+    """Consistency ramp-up from https://arxiv.org/abs/1610.02242"""
+    return weight * sigmoid_rampup(epoch, rampup)
 
 
 def load_train_data(batch_size, num_workers):
@@ -33,7 +66,40 @@ def load_train_data(batch_size, num_workers):
 
 
 def train(opt):
+    if torch.cuda.is_available():
+        torch.cuda.set_device("cuda:0")
+
     train_dataloader = load_train_data(opt.batch_size, opt.num_workers)
+
+    model = Unet(drop_rate=opt.drop_rate, bn_momentum=opt.bn_momentum)
+    model.cuda()
+
+    optimizer = torch.optim.Adam(model.parameters(), weight_decay=LAMBDA, lr=opt.initial_lr)
+    lr_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=GAMMA, verbose=True)
+    initial_lr = opt.initial_lr
+    num_epochs = opt.num_epochs
+
+    if opt.consistency_loss == "dice":
+        consistency_loss_fn = mt_losses.dice_loss
+
+    writer = SummaryWriter(log_dir="log_{}".format(opt.experiment_name))
+
+    for epoch in tqdm(range(1, num_epochs + 1), desc="Epochs"):
+        start_time = time.time()
+
+        initial_lr_rampup = opt.initial_lr_rampup
+        if epoch <= initial_lr_rampup:
+            lr = initial_lr * sigmoid_rampup(epoch, initial_lr_rampup)
+        else:
+            lr = cosine_lr(epoch - initial_lr_rampup, num_epochs - initial_lr_rampup, initial_lr)
+
+        writer.add_scalar('learning_rate', lr, epoch)
+
+        for param_group in optimizer.param_groups:
+            tqdm.write("Learning Rate: {:.6f}".format(lr))
+            param_group['lr'] = lr
+
+        model.train()
 
 
 if __name__ == '__main__':

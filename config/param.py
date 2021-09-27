@@ -8,3 +8,6 @@ class Plane(Enum):
 
 
 TEST_RATIO = 0.2
+
+GAMMA = 0.1
+LAMBDA = 6 * 10**(-4)
