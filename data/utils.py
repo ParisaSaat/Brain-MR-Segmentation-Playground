@@ -14,7 +14,7 @@ from data.dataset import CC359
 
 def get_dataset(img_root_dir, gt_root_dir, file_ids, slice_axis):
     dataset = CC359(img_root_dir=img_root_dir, gt_root_dir=gt_root_dir, slice_axis=slice_axis,
-                    slice_filter_fn=mt_filters.SliceFilter(), file_ids=file_ids)
+                    normalizer=min_max_normalization, slice_filter_fn=mt_filters.SliceFilter(), file_ids=file_ids)
     transform = tv.transforms.Compose([
         mt_transforms.ElasticTransform(alpha_range=(28.0, 30.0),
                                        sigma_range=(3.5, 4.0),
@@ -38,7 +38,7 @@ def patch_data(dataset, patch_size, max_patches):
     masks_patches = np.ndarray((total_patches_count, patch_size[0], patch_size[1]), dtype=np.uint8)
 
     random_value = np.random.randint(100)
-    for i in range(data_count):
+    for i in range(1):
         data = dataset[i]
         image = data.get('input')[0]
         mask = data.get('gt')[0]
@@ -61,3 +61,10 @@ def convert_array_to_dataset(x_arr, y_arr):
     y_tensor = torch.tensor(y_arr)
     dataset = TensorDataset(x_tensor, y_tensor)
     return dataset
+
+
+def min_max_normalization(data, up_bound=1000):
+    voxel_min = np.float32(np.min(data))
+    voxel_max = np.float32(np.max(data))
+
+    return (data - voxel_min) / (voxel_max - voxel_min) * up_bound
