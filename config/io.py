@@ -11,3 +11,5 @@ TRAIN_IMAGES_PATCHES_PATH = path.join(NPY_ROOT, 'source_train_images_patches.npy
 TRAIN_MASKS_PATCHES_PATH = path.join(NPY_ROOT, 'source_train_masks_patches.npy')
 TEST_IMAGES_PATCHES_PATH = path.join(NPY_ROOT, 'source_test_images_patches.npy')
 TEST_MASKS_PATCHES_PATH = path.join(NPY_ROOT, 'source_test_masks_patches.npy')
+NORMALIZED_IMAGES_PATH = '/home/parisaat/scratch/benchmark_data/cc359/normalized'
+NORMALIZED_IMAGES_TEMPLATE = '{file_id}.nii'

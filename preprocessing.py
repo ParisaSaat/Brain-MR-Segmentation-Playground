@@ -69,6 +69,21 @@ def preprocess(opt):
     print("--- %s seconds ---" % (time.time() - start_time))
 
 
+def offline_normalization(images_path):
+    makedirs(NORMALIZED_IMAGES_PATH, exist_ok=True)
+    for file_id in listdir(images_path):
+        if not file_id.startswith('.'):
+            image = nib.load(os.path.join(images_path, file_id))
+            image_data = image.get_fdata(dtype=np.float32)
+            normalized_image = min_max_normalization(image_data)
+            niftii_img = nib.Nifti1Image(normalized_image, np.eye(4))
+            nib.save(niftii_img, os.path.join(NORMALIZED_IMAGES_PATH,
+                                              NORMALIZED_IMAGES_TEMPLATE.format(file_id=file_id.split('.')[0])))
+
+
 if __name__ == '__main__':
     options = create_parser()
-    preprocess(options)
+    if options.normalize:
+        offline_normalization(options.imgs_dir)
+    else:
+        preprocess(options)

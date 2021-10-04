@@ -63,8 +63,8 @@ def convert_array_to_dataset(x_arr, y_arr):
     return dataset
 
 
-def min_max_normalization(data, up_bound=1000):
+def min_max_normalization(data):
     voxel_min = np.float32(np.min(data))
     voxel_max = np.float32(np.max(data))
 
-    return (data - voxel_min) / (voxel_max - voxel_min) * up_bound
+    return (data - voxel_min) / (voxel_max - voxel_min)
