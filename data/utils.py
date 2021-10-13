@@ -12,20 +12,20 @@ from config.io import NPY_ROOT
 from data.dataset import CC359
 
 
-def get_dataset(img_root_dir, gt_root_dir, file_ids, slice_axis):
+def get_dataset(img_root_dir, gt_root_dir, file_ids, slice_axis, transform):
     dataset = CC359(img_root_dir=img_root_dir, gt_root_dir=gt_root_dir, slice_axis=slice_axis,
                     normalizer=min_max_normalization, slice_filter_fn=mt_filters.SliceFilter(), file_ids=file_ids)
-    transform = tv.transforms.Compose([
-        mt_transforms.ElasticTransform(alpha_range=(28.0, 30.0),
-                                       sigma_range=(3.5, 4.0),
-                                       p=0.3),
-        mt_transforms.RandomAffine(degrees=4.6,
-                                   scale=(0.98, 1.02),
-                                   translate=(0.03, 0.03)),
-        mt_transforms.RandomTensorChannelShift((-0.10, 0.10)),
-        mt_transforms.ToTensor(),
-        mt_transforms.NormalizeInstance(),
-    ])
+    # transform = tv.transforms.Compose([
+    #     mt_transforms.ElasticTransform(alpha_range=(28.0, 30.0),
+    #                                    sigma_range=(3.5, 4.0),
+    #                                    p=0.3),
+    #     mt_transforms.RandomAffine(degrees=4.6,
+    #                                scale=(0.98, 1.02),
+    #                                translate=(0.03, 0.03)),
+    #     mt_transforms.RandomTensorChannelShift((-0.10, 0.10)),
+    #     mt_transforms.ToTensor(),
+    #     mt_transforms.NormalizeInstance(),
+    # ])
 
     dataset.set_transform(transform)
     return dataset

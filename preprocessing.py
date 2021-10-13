@@ -8,7 +8,15 @@ from sklearn.model_selection import train_test_split
 
 from config.io import *
 from config.param import Plane, TEST_RATIO
-from data.utils import get_dataset, patch_data, save_patches
+from data.utils import get_dataset, patch_data, save_patches, min_max_normalization
+import matplotlib.pyplot as plt
+import nibabel as nib
+import numpy as np
+import os
+
+import albumentations as A
+import albumentations.augmentations.functional as F
+from albumentations.pytorch import ToTensorV2
 
 
 def create_parser():
@@ -18,9 +26,15 @@ def create_parser():
     parser.add_argument('-max_patches', type=int, default=3, help='number of patches per slice')
     parser.add_argument('-imgs_dir', type=str, default='imgs_train', help='images directory name')
     parser.add_argument('-masks_dir', type=str, default='imgs_masks_train', help='mask directory name')
+    parser.add_argument('-num_epochs', type=int, default=5, help='number of epochs to train for')
+    parser.add_argument('-normalize', type=bool, default=False, help='Do min max normalization on dataset')
 
     opt = parser.parse_args()
     return opt
+
+
+def augment_data(dataset, transforms):
+    dataset.set_transform(transforms)
 
 
 def preprocess(opt):
@@ -30,7 +44,6 @@ def preprocess(opt):
         torch.cuda.set_device("cuda:0")
 
     start_time = time.time()
-
     tag = Plane.SAGITTAL.value
     file_ids = []
     vendors = []
@@ -58,13 +71,34 @@ def preprocess(opt):
     train_dataset = get_dataset(SOURCE_TRAIN_IMAGES_PATH, SOURCE_TRAIN_MASKS_PATH, train_files, tag)
     test_dataset = get_dataset(SOURCE_TEST_IMAGES_PATH, SOURCE_TEST_MASKS_PATH, test_files, tag)
     print('train dataset size:', len(train_dataset))
-    print('test dataset size:', len(test_dataset))
-
-    train_images_patches, train_masks_patches = patch_data(train_dataset, patch_size, opt.max_patches)
-    test_images_patches, test_masks_patches = patch_data(test_dataset, patch_size, opt.max_patches)
-
-    save_patches(train_images_patches, train_masks_patches, TRAIN_IMAGES_PATCHES_PATH, TRAIN_MASKS_PATCHES_PATH)
-    save_patches(test_images_patches, test_masks_patches, TEST_IMAGES_PATCHES_PATH, TEST_MASKS_PATCHES_PATH)
+    print('val dataset size:', len(val_dataset))
+    figure, ax = plt.subplots(nrows=opt.num_epochs, ncols=4, figsize=(10, 24))
+    for i in range(opt.num_epochs):
+        # train_images_patches, train_masks_patches = patch_data(train_dataset, patch_size, opt.max_patches)
+        # val_images_patches, test_masks_patches = patch_data(val_dataset, patch_size, opt.max_patches)
+        #
+        # save_patches(train_images_patches, train_masks_patches, TRAIN_IMAGES_PATCHES_PATH, TRAIN_MASKS_PATCHES_PATH)
+        # save_patches(val_images_patches, test_masks_patches, TEST_IMAGES_PATCHES_PATH, TEST_MASKS_PATCHES_PATH)
+        image = train_dataset[50].get('input')
+        mask = train_dataset[50].get('gt')
+        asl = train_dataset[50].get('asl')
+        print('input_img:', type(asl), asl.shape)
+        print(asl)
+        asl_mask = train_dataset[50].get('asl_mask')
+        ax[i, 0].imshow(image[0], cmap='gray')
+        ax[i, 1].imshow(mask, interpolation="nearest", cmap='gray')
+        ax[i, 2].imshow(asl, cmap='gray')
+        ax[i, 3].imshow(asl_mask, interpolation="nearest", cmap='gray')
+        ax[i, 0].set_title("Augmented image")
+        ax[i, 1].set_title("Augmented mask")
+        ax[i, 2].set_title("asl image")
+        ax[i, 3].set_title("asl mask")
+        ax[i, 0].set_axis_off()
+        ax[i, 1].set_axis_off()
+        ax[i, 2].set_axis_off()
+        ax[i, 3].set_axis_off()
+        plt.tight_layout()
+        plt.show()
 
     print("--- %s seconds ---" % (time.time() - start_time))
 

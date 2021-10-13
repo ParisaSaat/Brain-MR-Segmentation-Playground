@@ -1,3 +1,4 @@
+albumentations==1.0.3
 medicaltorch==0.2
 nibabel==3.2.1
 numpy==1.21.0

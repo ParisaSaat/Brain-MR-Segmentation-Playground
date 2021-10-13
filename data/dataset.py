@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 from medicaltorch.datasets import SegmentationPair2D
 from torch.utils.data import Dataset
-
+import nibabel as nib
 
 class SegmentationPair(SegmentationPair2D):
 
@@ -79,6 +79,7 @@ class CC359(Dataset):
 
         self._load_filenames()
         self._prepare_indexes()
+        self.file_id, self.file_slice = self.__compute_file_id_and_slice_id__()
 
     def _load_filenames(self):
         for input_filename, gt_filename in self.filename_pairs:
@@ -86,8 +87,10 @@ class CC359(Dataset):
             self.handlers.append(segpair)
 
     def _prepare_indexes(self):
+        slice_count = []
         for segpair in self.handlers:
             input_data_shape, _ = segpair.get_pair_shapes()
+            n_slices = 0
             for segpair_slice in range(input_data_shape[self.slice_axis]):
 
                 # Check if slice pair should be used or not
@@ -98,9 +101,30 @@ class CC359(Dataset):
                     filter_fn_ret = self.slice_filter_fn(slice_pair)
                     if not filter_fn_ret:
                         continue
+                n_slices += 1
 
                 item = (segpair, segpair_slice)
                 self.indexes.append(item)
+            slice_count.append(n_slices)
+        slice_count = np.array(slice_count)
+        self.n_samples = slice_count.sum()
+        self.samples_cumsum = slice_count.cumsum()
+
+    def __compute_file_id_and_slice_id__(self):
+
+        indexes = np.arange(self.n_samples)
+
+        file_ids = [0] * self.samples_cumsum[0]
+        for i in range(1, self.samples_cumsum.size):
+            file_ids += [i] * (self.samples_cumsum[i] - self.samples_cumsum[i - 1])
+        file_ids = np.array(file_ids, dtype=int)
+
+        file_slices = np.zeros(self.n_samples, dtype=int)
+        file_slices[:self.samples_cumsum[0]] = np.arange(self.samples_cumsum[0])
+        file_slices[self.samples_cumsum[0]:] = (indexes[self.samples_cumsum[0]:]
+                                                - self.samples_cumsum[file_ids[indexes[self.samples_cumsum[0]:]] - 1])
+
+        return file_ids, file_slices
 
     def set_transform(self, transform):
         """This method will replace the current transformation for the
@@ -126,20 +150,27 @@ class CC359(Dataset):
         # Consistency with torchvision, returning PIL Image
         # Using the "Float mode" of PIL, the only mode
         # supporting unbounded float32 values
-        input_img = Image.fromarray(pair_slice["input"], mode='F')
+        input_img = np.array(Image.fromarray(pair_slice["input"], mode='F'))
 
         # Handle unlabeled data
         if pair_slice["gt"] is None:
             gt_img = None
         else:
-            gt_img = Image.fromarray(pair_slice["gt"], mode='F')
+            gt_img = np.array(Image.fromarray(pair_slice["gt"], mode='F'))
 
-        data_dict = {
-            'input': input_img,
-            'gt': gt_img,
-        }
         if self.transform is not None:
-            data_dict = self.transform(data_dict)
+            transformed_pair = self.transform(image=input_img, mask=gt_img)
+            input_img_t = transformed_pair['image']
+            gt_img_t = transformed_pair['mask']
+
+        # print('input_img:', type(input_img), input_img.shape)
+        # print(input_img)
+        data_dict = {
+            'input': input_img_t,
+            'gt': gt_img_t,
+            'asl': input_img,
+            'asl_mask': gt_img,
+        }
         return data_dict
 
     @staticmethod
@@ -148,3 +179,11 @@ class CC359(Dataset):
             return "{id}.nii.gz".format(id=file_id)
         else:
             return "{id}_ss.nii.gz".format(id=file_id)
+
+    def save(self, img_path, msk_path):
+        for i in range(self.samples_cumsum.size):
+            image, mask = self.handlers[i].get_pair_data()
+            nifti_image = nib.Nifti1Image(image, affine=np.eye(4))
+            nifti_mask = nib.Nifti1Image(mask, affine=np.eye(4))
+            nib.save(nifti_image, os.path.join(img_path, '{}.nii'.format(i)))
+            nib.save(nifti_mask, os.path.join(msk_path, '{}.nii'.format(i)))
