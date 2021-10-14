@@ -1,19 +1,23 @@
 from os import path
 
-SOURCE_TRAIN_IMAGES_PATH = '/Users/par/Desktop/uni/thesis/data/cc359/source/train/images'
-SOURCE_TRAIN_MASKS_PATH = '/Users/par/Desktop/uni/thesis/data/cc359/source/train/masks'
-SOURCE_VAL_IMAGES_PATH = '/Users/par/Desktop/uni/thesis/data/cc359/source/val/images'
-SOURCE_VAL_MASKS_PATH = '/Users/par/Desktop/uni/thesis/data/cc359/source/val/masks'
-SOURCE_TEST_IMAGES_PATH = '/Users/par/Desktop/uni/thesis/data/cc359/source/test/images'
-SOURCE_TEST_MASKS_PATH = '/Users/par/Desktop/uni/thesis/data/cc359/source/test/masks'
+SOURCE_TRAIN_IMAGES_PATH = '/home/par/thesis/data/cc359/source/train/images'
+SOURCE_TRAIN_MASKS_PATH = '/home/par/thesis/data/cc359/source/train/masks'
+SOURCE_VAL_IMAGES_PATH = '/home/par/thesis/data/cc359/source/val/images'
+SOURCE_VAL_MASKS_PATH = '/home/par/thesis/data/cc359/source/val/masks'
+SOURCE_TEST_IMAGES_PATH = '/home/par/thesis/data/cc359/source/test/images'
+SOURCE_TEST_MASKS_PATH = '/home/par/thesis/data/cc359/source/test/masks'
+SOURCE_SLICES_TRAIN_IMAGES_PATH = '/home/par/thesis/data/cc359/source/slices/train/images'
+SOURCE_SLICES_TRAIN_MASKS_PATH = '/home/par/thesis/data/cc359/source/slices/train/masks'
+SOURCE_SLICES_VAL_IMAGES_PATH = '/home/par/thesis/data/cc359/source/slices/val/images'
+SOURCE_SLICES_VAL_MASKS_PATH = '/home/par/thesis/data/cc359/source/slices/val/masks'
 IMAGE_FILE_TEMPLATE = '{file_id}.nii.gz'
 MASK_FILE_TEMPLATE = '{file_id}_ss.nii.gz'
-NPY_ROOT = '/Users/par/Desktop/uni/thesis/data/cc359/npy'
+NPY_ROOT = '/home/par/thesis/data/cc359/npy'
 TRAIN_IMAGES_PATCHES_PATH = path.join(NPY_ROOT, 'source_train_images_patches.npy')
 TRAIN_MASKS_PATCHES_PATH = path.join(NPY_ROOT, 'source_train_masks_patches.npy')
 VAL_IMAGES_PATCHES_PATH = path.join(NPY_ROOT, 'source_val_images_patches.npy')
 VAL_MASKS_PATCHES_PATH = path.join(NPY_ROOT, 'source_val_masks_patches.npy')
 TEST_IMAGES_PATCHES_PATH = path.join(NPY_ROOT, 'source_test_images_patches.npy')
 TEST_MASKS_PATCHES_PATH = path.join(NPY_ROOT, 'source_test_masks_patches.npy')
-NORMALIZED_IMAGES_PATH = '/home/parisaat/scratch/benchmark_data/cc359/normalized'
+NORMALIZED_IMAGES_PATH = '/home/par/thesis/data/cc359/normalized'
 NORMALIZED_IMAGES_TEMPLATE = '{file_id}.nii'
