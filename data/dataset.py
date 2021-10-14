@@ -1,10 +1,12 @@
 import os
+from os import makedirs
 
+import nibabel as nib
 import numpy as np
 from PIL import Image
 from medicaltorch.datasets import SegmentationPair2D
 from torch.utils.data import Dataset
-import nibabel as nib
+
 
 class SegmentationPair(SegmentationPair2D):
 
@@ -44,8 +46,8 @@ class CC359(Dataset):
     NUM_SITES = 2
     NUM_SUBJECTS = 359
 
-    def __init__(self, img_root_dir, slice_axis, normalizer, gt_root_dir=None, file_ids=None, cache=True,
-                 transform=None, slice_filter_fn=None, canonical=False, labeled=True):
+    def __init__(self, img_root_dir, gt_root_dir=None, slice_axis=1, file_ids=None, cache=True, transform=None,
+                 slice_filter_fn=None, canonical=False, labeled=True, normalizer=None):
 
         self.labeled = labeled
         self.img_root_dir = img_root_dir
@@ -67,7 +69,6 @@ class CC359(Dataset):
 
             self.filename_pairs.append((img_filename, gt_filename))
 
-
         self.filename_pairs = self.filename_pairs
         self.handlers = []
         self.indexes = []
@@ -78,53 +79,30 @@ class CC359(Dataset):
         self.canonical = canonical
 
         self._load_filenames()
-        self._prepare_indexes()
-        self.file_id, self.file_slice = self.__compute_file_id_and_slice_id__()
 
     def _load_filenames(self):
         for input_filename, gt_filename in self.filename_pairs:
-            segpair = SegmentationPair(input_filename, gt_filename, self.normalizer, self.cache, self.canonical)
-            self.handlers.append(segpair)
+            seg_pair = SegmentationPair(input_filename, gt_filename, self.normalizer, self.cache, self.canonical)
+            self.handlers.append(seg_pair)
 
-    def _prepare_indexes(self):
-        slice_count = []
-        for segpair in self.handlers:
-            input_data_shape, _ = segpair.get_pair_shapes()
-            n_slices = 0
-            for segpair_slice in range(input_data_shape[self.slice_axis]):
-
-                # Check if slice pair should be used or not
+    def save_slices(self, image_path, mask_path):
+        makedirs(image_path, exist_ok=True)
+        makedirs(mask_path, exist_ok=True)
+        n_slices = 0
+        for seg_pair in self.handlers:
+            input_data_shape, _ = seg_pair.get_pair_shapes()
+            for seg_pair_slice in range(input_data_shape[self.slice_axis]):
+                slice_pair = seg_pair.get_pair_slice(seg_pair_slice, self.slice_axis)
                 if self.slice_filter_fn:
-                    slice_pair = segpair.get_pair_slice(segpair_slice,
-                                                        self.slice_axis)
-
                     filter_fn_ret = self.slice_filter_fn(slice_pair)
                     if not filter_fn_ret:
                         continue
+                nifti_image = nib.Nifti1Image(slice_pair.get("input"), affine=np.eye(4))
+                nifti_mask = nib.Nifti1Image(slice_pair.get("gt"), affine=np.eye(4))
+                nib.save(nifti_image, os.path.join(image_path, '{}.nii'.format(n_slices)))
+                nib.save(nifti_mask, os.path.join(mask_path, '{}.nii'.format(n_slices)))
                 n_slices += 1
-
-                item = (segpair, segpair_slice)
-                self.indexes.append(item)
-            slice_count.append(n_slices)
-        slice_count = np.array(slice_count)
-        self.n_samples = slice_count.sum()
-        self.samples_cumsum = slice_count.cumsum()
-
-    def __compute_file_id_and_slice_id__(self):
-
-        indexes = np.arange(self.n_samples)
-
-        file_ids = [0] * self.samples_cumsum[0]
-        for i in range(1, self.samples_cumsum.size):
-            file_ids += [i] * (self.samples_cumsum[i] - self.samples_cumsum[i - 1])
-        file_ids = np.array(file_ids, dtype=int)
-
-        file_slices = np.zeros(self.n_samples, dtype=int)
-        file_slices[:self.samples_cumsum[0]] = np.arange(self.samples_cumsum[0])
-        file_slices[self.samples_cumsum[0]:] = (indexes[self.samples_cumsum[0]:]
-                                                - self.samples_cumsum[file_ids[indexes[self.samples_cumsum[0]:]] - 1])
-
-        return file_ids, file_slices
+        print("total number of slices:", n_slices)
 
     def set_transform(self, transform):
         """This method will replace the current transformation for the
@@ -143,9 +121,9 @@ class CC359(Dataset):
 
         :param index: slice index.
         """
-        segpair, segpair_slice = self.indexes[index]
-        pair_slice = segpair.get_pair_slice(segpair_slice,
-                                            self.slice_axis)
+        seg_pair, seg_pair_slice = self.indexes[index]
+        pair_slice = seg_pair.get_pair_slice(seg_pair_slice,
+                                             self.slice_axis)
 
         # Consistency with torchvision, returning PIL Image
         # Using the "Float mode" of PIL, the only mode
@@ -160,16 +138,12 @@ class CC359(Dataset):
 
         if self.transform is not None:
             transformed_pair = self.transform(image=input_img, mask=gt_img)
-            input_img_t = transformed_pair['image']
-            gt_img_t = transformed_pair['mask']
+            input_img = transformed_pair['image']
+            gt_img = transformed_pair['mask']
 
-        # print('input_img:', type(input_img), input_img.shape)
-        # print(input_img)
         data_dict = {
-            'input': input_img_t,
-            'gt': gt_img_t,
-            'asl': input_img,
-            'asl_mask': gt_img,
+            'input': input_img,
+            'gt': gt_img,
         }
         return data_dict
 
@@ -179,11 +153,3 @@ class CC359(Dataset):
             return "{id}.nii.gz".format(id=file_id)
         else:
             return "{id}_ss.nii.gz".format(id=file_id)
-
-    def save(self, img_path, msk_path):
-        for i in range(self.samples_cumsum.size):
-            image, mask = self.handlers[i].get_pair_data()
-            nifti_image = nib.Nifti1Image(image, affine=np.eye(4))
-            nifti_mask = nib.Nifti1Image(mask, affine=np.eye(4))
-            nib.save(nifti_image, os.path.join(img_path, '{}.nii'.format(i)))
-            nib.save(nifti_mask, os.path.join(msk_path, '{}.nii'.format(i)))
