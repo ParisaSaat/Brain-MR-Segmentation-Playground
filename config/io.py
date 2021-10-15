@@ -1,65 +1,79 @@
-from os import path
+import os
+
+PROCESS_ENV = os.environ.get('ENV', 'TEST')
+
 
 SOURCE_TRAIN_IMAGES_PATH = {
-    'test': '/home/par/thesis/data/cc359/source/train/images',
-    'production': '/home/parisaat/scratch/data/cc359/source/train/images',
+    'TEST': '/home/par/thesis/data/cc359/source/train/images',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/source/train/images',
 }
+SOURCE_TRAIN_IMAGES_PATH = SOURCE_TRAIN_IMAGES_PATH[PROCESS_ENV]
 
 SOURCE_TRAIN_MASKS_PATH = {
-    'test': '/home/par/thesis/data/cc359/source/train/masks',
-    'production': '/home/parisaat/scratch/data/cc359/source/train/masks',
+    'TEST': '/home/par/thesis/data/cc359/source/train/masks',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/source/train/masks',
 }
+SOURCE_TRAIN_MASKS_PATH = SOURCE_TRAIN_MASKS_PATH[PROCESS_ENV]
 
 SOURCE_VAL_IMAGES_PATH = {
-    'test': '/home/par/thesis/data/cc359/source/val/images',
-    'production': '/home/parisaat/scratch/data/cc359/source/val/images',
+    'TEST': '/home/par/thesis/data/cc359/source/val/images',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/source/val/images',
 }
+SOURCE_VAL_IMAGES_PATH = SOURCE_VAL_IMAGES_PATH[PROCESS_ENV]
+
 SOURCE_VAL_MASKS_PATH = {
-    'test': '/home/par/thesis/data/cc359/source/val/masks',
-    'production': '/home/parisaat/scratch/data/cc359/source/val/masks',
+    'TEST': '/home/par/thesis/data/cc359/source/val/masks',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/source/val/masks',
 }
+SOURCE_VAL_MASKS_PATH = SOURCE_VAL_MASKS_PATH[PROCESS_ENV]
+
 SOURCE_TEST_IMAGES_PATH = {
-    'test': '/home/par/thesis/data/cc359/source/test/images',
-    'production': '/home/parisaat/scratch/data/cc359/source/test/images',
+    'TEST': '/home/par/thesis/data/cc359/source/test/images',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/source/test/images',
 }
+SOURCE_TEST_IMAGES_PATH = SOURCE_TEST_IMAGES_PATH[PROCESS_ENV]
+
 SOURCE_TEST_MASKS_PATH = {
-    'test': '/home/par/thesis/data/cc359/source/test/masks',
-    'production': '/home/parisaat/scratch/data/cc359/source/test/masks',
+    'TEST': '/home/par/thesis/data/cc359/source/test/masks',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/source/test/masks',
 }
+SOURCE_TEST_MASKS_PATH = SOURCE_TEST_MASKS_PATH[PROCESS_ENV]
+
 SOURCE_SLICES_TRAIN_IMAGES_PATH = {
-    'test': '/home/par/thesis/data/cc359/source/slices/train/images',
-    'production': '/home/parisaat/scratch/data/cc359/source/slices/train/images',
+    'TEST': '/home/par/thesis/data/cc359/source/slices/train/images',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/source/slices/train/images',
 }
+SOURCE_SLICES_TRAIN_IMAGES_PATH = SOURCE_SLICES_TRAIN_IMAGES_PATH[PROCESS_ENV]
+
 SOURCE_SLICES_TRAIN_MASKS_PATH = {
-    'test': '/home/par/thesis/data/cc359/source/slices/train/masks',
-    'production': '/home/parisaat/scratch/data/cc359/source/slices/train/masks',
+    'TEST': '/home/par/thesis/data/cc359/source/slices/train/masks',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/source/slices/train/masks',
 }
+SOURCE_SLICES_TRAIN_MASKS_PATH = SOURCE_SLICES_TRAIN_MASKS_PATH[PROCESS_ENV]
+
 SOURCE_SLICES_VAL_IMAGES_PATH = {
-    'test': '/home/par/thesis/data/cc359/source/slices/val/images',
-    'production': '/home/parisaat/scratch/data/cc359/source/slices/val/images',
+    'TEST': '/home/par/thesis/data/cc359/source/slices/val/images',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/source/slices/val/images',
 }
+SOURCE_SLICES_VAL_IMAGES_PATH = SOURCE_SLICES_VAL_IMAGES_PATH[PROCESS_ENV]
+
 SOURCE_SLICES_VAL_MASKS_PATH = {
-    'test': '/home/par/thesis/data/cc359/source/slices/val/masks',
-    'production': '/home/parisaat/scratch/data/cc359/source/slices/val/masks',
+    'TEST': '/home/par/thesis/data/cc359/source/slices/val/masks',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/source/slices/val/masks',
 }
+SOURCE_SLICES_VAL_MASKS_PATH = SOURCE_SLICES_VAL_MASKS_PATH[PROCESS_ENV]
 
 NPY_ROOT = {
-    'test': '/home/par/thesis/data/cc359/npy',
-    'production': '/home/parisaat/scratch/data/cc359/npy',
+    'TEST': '/home/par/thesis/data/cc359/npy',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/npy',
 }
+NPY_ROOT = NPY_ROOT[PROCESS_ENV]
 
-TRAIN_IMAGES_PATCHES_PATH = path.join(NPY_ROOT, 'source_train_images_patches.npy')
-TRAIN_MASKS_PATCHES_PATH = path.join(NPY_ROOT, 'source_train_masks_patches.npy')
-
-VAL_IMAGES_PATCHES_PATH = path.join(NPY_ROOT, 'source_val_images_patches.npy')
-VAL_MASKS_PATCHES_PATH = path.join(NPY_ROOT, 'source_val_masks_patches.npy')
-
-TEST_IMAGES_PATCHES_PATH = path.join(NPY_ROOT, 'source_test_images_patches.npy')
-TEST_MASKS_PATCHES_PATH = path.join(NPY_ROOT, 'source_test_masks_patches.npy')
 NORMALIZED_IMAGES_PATH = {
-    'test': '/home/par/thesis/data/cc359/normalized',
-    'production': '/home/parisaat/scratch/data/cc359/normalized',
+    'TEST': '/home/par/thesis/data/cc359/normalized',
+    'PRODUCTION': '/home/parisaat/scratch/data/cc359/normalized',
 }
+NORMALIZED_IMAGES_PATH = NORMALIZED_IMAGES_PATH[PROCESS_ENV]
 
 IMAGE_FILE_TEMPLATE = '{file_id}.nii.gz'
 MASK_FILE_TEMPLATE = '{file_id}_ss.nii.gz'

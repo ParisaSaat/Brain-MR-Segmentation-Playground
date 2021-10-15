@@ -33,7 +33,7 @@ def split_data(imgs_dir, masks_dir):
 def copy_files(file_ids, source, dest, name_template):
     makedirs(dest, exist_ok=True)
     for file_id in file_ids:
-        shutil.copy(path.join(source, name_template.format(file_id=file_id)), dest)
+        shutil.copy(os.path.join(source, name_template.format(file_id=file_id)), dest)
 
 
 def create_parser():
