@@ -1,6 +1,7 @@
 import argparse
 import time
 from collections import defaultdict
+from os import listdir
 
 import medicaltorch.losses as mt_losses
 import medicaltorch.metrics as mt_metrics
@@ -114,12 +115,17 @@ def validation(model, loader, writer, metric_fns, epoch, prefix):
 
 def train(opt):
     if torch.cuda.is_available():
+        print('cuda is available')
         torch.cuda.set_device("cuda:0")
 
-    train_dataloader = load_data_patches(TRAIN_IMAGES_PATCHES_PATH, TRAIN_MASKS_PATCHES_PATH, opt.batch_size,
-                                         opt.num_workers)
-    valid_dataloader = load_data_patches(TEST_IMAGES_PATCHES_PATH, TEST_MASKS_PATCHES_PATH, opt.batch_size,
-                                         opt.num_workers)
+    train_image_files = listdir(SOURCE_SLICES_TRAIN_IMAGES_PATH)
+    train_mask_filses = listdir(SOURCE_SLICES_TRAIN_MASKS_PATH)
+
+
+    # train_dataloader = load_data_patches(TRAIN_IMAGES_PATCHES_PATH, TRAIN_MASKS_PATCHES_PATH, opt.batch_size,
+    #                                      opt.num_workers)
+    # valid_dataloader = load_data_patches(TEST_IMAGES_PATCHES_PATH, TEST_MASKS_PATCHES_PATH, opt.batch_size,
+    #                                      opt.num_workers)
 
     model = Unet(drop_rate=opt.drop_rate, bn_momentum=opt.bn_momentum)
     model.cuda()

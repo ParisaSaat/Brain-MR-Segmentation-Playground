@@ -153,3 +153,12 @@ class CC359(Dataset):
             return "{id}.nii.gz".format(id=file_id)
         else:
             return "{id}_ss.nii.gz".format(id=file_id)
+
+
+class BrainMRI2D(Dataset):
+    def __init__(self, img_root_dir, gt_root_dir=None, file_ids=None, transform=None, labeled=True, normalizer=None):
+        pass
+
+
+    def __getitem__(self, item):
+        pass
