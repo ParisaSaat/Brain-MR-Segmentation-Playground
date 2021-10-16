@@ -11,16 +11,21 @@ import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import *
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 from config.io import *
 from config.param import LAMBDA
 from data.utils import convert_array_to_dataset
 from models.baseline import Unet
+from data.dataset import BrainMRI2D
 
 
 def create_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-batch_size', type=int, default=16, help='input batch size')
+    parser.add_argument('-patch_height', type=int, default=128, help='patch size')
+    parser.add_argument('-patch_width', type=int, default=128, help='patch size')
     parser.add_argument('-num_workers', type=int, default=16, help='number of workers')
     parser.add_argument('-num_epochs', type=int, default=1, help='number of epochs to train for')
     parser.add_argument('-experiment_name', type=str, default='', help='experiment name')
@@ -113,19 +118,42 @@ def validation(model, loader, writer, metric_fns, epoch, prefix):
     writer.add_scalars(prefix + '_metrics', result_dict, epoch)
 
 
+def get_dataloader(image_dir, mask_dir, batch_size, transform):
+    image_files = listdir(image_dir)
+    mask_files = listdir(mask_dir)
+    dataset = BrainMRI2D(image_files, mask_files, transform=transform)
+    dataloader = DataLoader(dataset, batch_size)
+    return dataloader
+
+
 def train(opt):
     if torch.cuda.is_available():
         print('cuda is available')
         torch.cuda.set_device("cuda:0")
 
-    train_image_files = listdir(SOURCE_SLICES_TRAIN_IMAGES_PATH)
-    train_mask_filses = listdir(SOURCE_SLICES_TRAIN_MASKS_PATH)
+    patch_size = (opt.patch_height, opt.patch_width)
 
+    train_transform = A.Compose(
+        [
+            A.Resize(),
+            A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, rotate_limit=10, p=0.5),
+            A.RandomCrop(height=patch_size[0], width=patch_size[1]),
+            A.RandomBrightnessContrast(p=0.5),
+            ToTensorV2(),
+        ]
+    )
 
-    # train_dataloader = load_data_patches(TRAIN_IMAGES_PATCHES_PATH, TRAIN_MASKS_PATCHES_PATH, opt.batch_size,
-    #                                      opt.num_workers)
-    # valid_dataloader = load_data_patches(TEST_IMAGES_PATCHES_PATH, TEST_MASKS_PATCHES_PATH, opt.batch_size,
-    #                                      opt.num_workers)
+    val_transform = A.Compose(
+        [
+            A.CenterCrop(height=128, width=128),
+            ToTensorV2(),
+        ]
+    )
+
+    train_dataloader = get_dataloader(SOURCE_SLICES_TRAIN_IMAGES_PATH, SOURCE_SLICES_TRAIN_MASKS_PATH, opt.batch_size,
+                                      train_transform)
+    validation_dataloader = get_dataloader(SOURCE_SLICES_VAL_IMAGES_PATH, SOURCE_SLICES_VAL_IMAGES_PATH, opt.batch_size,
+                                           val_transform)
 
     model = Unet(drop_rate=opt.drop_rate, bn_momentum=opt.bn_momentum)
     model.cuda()
@@ -156,57 +184,58 @@ def train(opt):
         loss_total = 0.0
 
         num_steps = 0
-
-        for i, train_batch in enumerate(train_dataloader):
-            train_image, train_mask = train_batch["input"], train_batch["gt"]
-            train_image = train_image.cuda()
-            train_mask = train_mask.cuda()
-            prediction = model(train_image)
-            loss = mt_losses.dice_loss(prediction, train_mask)
-            optimizer.zero_grad()
-            loss.backward()
-
-            optimizer.step()
-
-            loss_total += loss.item()
-
-            num_steps += 1
-
-        npy_prediction = prediction.detach().cpu().numpy()
-        writer.add_histogram("Prediction Hist", npy_prediction, epoch)
-
-        loss_avg = loss_total / num_steps
-
-        tqdm.write("Steps p/ Epoch: {}".format(num_steps))
-        tqdm.write("Class Loss: {:.6f}".format(loss_avg))
-
-        if opt.write_images and epoch % opt.write_images_interval == 0:
-            try:
-                plot_img = vutils.make_grid(prediction, normalize=True, scale_each=True)
-                writer.add_image('Train Source Prediction', plot_img, epoch)
-
-                plot_img = vutils.make_grid(train_image, normalize=True, scale_each=True)
-                writer.add_image('Train Source Input', plot_img, epoch)
-
-                plot_img = vutils.make_grid(train_mask, normalize=True, scale_each=True)
-                writer.add_image('Train Source Ground Truth', plot_img, epoch)
-            except:
-                tqdm.write("*** Error writing images ***")
-
-        writer.add_scalars('losses', {'loss': loss_avg}, epoch)
-
-        model.eval()
-
-        metric_fns = [mt_metrics.dice_score, mt_metrics.jaccard_score, mt_metrics.hausdorff_score,
-                      mt_metrics.precision_score, mt_metrics.recall_score,
-                      mt_metrics.specificity_score, mt_metrics.intersection_over_union,
-                      mt_metrics.accuracy_score]
-
-        validation(model, valid_dataloader, writer, metric_fns, epoch, opt)
-
-        end_time = time.time()
-        total_time = end_time - start_time
-        tqdm.write("Epoch {} took {:.2f} seconds.".format(epoch, total_time))
+    #
+    #     for i, train_batch in enumerate(train_dataloader):
+    #         train_image, train_mask = train_batch["input"], train_batch["gt"]
+    #         train_image = train_image.cuda()
+    #         train_mask = train_mask.cuda()
+    #         prediction = model(train_image)
+    #         loss = mt_losses.dice_loss(prediction, train_mask)
+    #         optimizer.zero_grad()
+    #         loss.backward()
+    #
+    #         optimizer.step()
+    #
+    #         loss_total += loss.item()
+    #
+    #         num_steps += 1
+    #
+    #     npy_prediction = prediction.detach().cpu().numpy()
+    #     writer.add_histogram("Prediction Hist", npy_prediction, epoch)
+    #
+    #     loss_avg = loss_total / num_steps
+    #
+    #     tqdm.write("Steps p/ Epoch: {}".format(num_steps))
+    #     tqdm.write("Class Loss: {:.6f}".format(loss_avg))
+    #
+    #     if opt.write_images and epoch % opt.write_images_interval == 0:
+    #         try:
+    #             plot_img = vutils.make_grid(prediction, normalize=True, scale_each=True)
+    #             writer.add_image('Train Source Prediction', plot_img, epoch)
+    #
+    #             plot_img = vutils.make_grid(train_image, normalize=True, scale_each=True)
+    #             writer.add_image('Train Source Input', plot_img, epoch)
+    #
+    #             plot_img = vutils.make_grid(train_mask, normalize=True, scale_each=True)
+    #             writer.add_image('Train Source Ground Truth', plot_img, epoch)
+    #         except:
+    #             tqdm.write("*** Error writing images ***")
+    #
+    #     writer.add_scalars('losses', {'loss': loss_avg}, epoch)
+    #
+    #     model.eval()
+    #
+    #     metric_fns = [mt_metrics.dice_score, mt_metrics.jaccard_score, mt_metrics.hausdorff_score,
+    #                   mt_metrics.precision_score, mt_metrics.recall_score,
+    #                   mt_metrics.specificity_score, mt_metrics.intersection_over_union,
+    #                   mt_metrics.accuracy_score]
+    #
+    #     validation(model, valid_dataloader, writer, metric_fns, epoch, opt)
+    #
+    #     end_time = time.time()
+    #     total_time = end_time - start_time
+    #     tqdm.write("Epoch {} took {:.2f} seconds.".format(epoch, total_time))
+    #
 
 
 if __name__ == '__main__':

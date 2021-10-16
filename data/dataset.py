@@ -89,6 +89,8 @@ class CC359(Dataset):
         makedirs(image_path, exist_ok=True)
         makedirs(mask_path, exist_ok=True)
         n_slices = 0
+        max_x = 0
+        max_y = 0
         for seg_pair in self.handlers:
             input_data_shape, _ = seg_pair.get_pair_shapes()
             for seg_pair_slice in range(input_data_shape[self.slice_axis]):
@@ -97,12 +99,19 @@ class CC359(Dataset):
                     filter_fn_ret = self.slice_filter_fn(slice_pair)
                     if not filter_fn_ret:
                         continue
-                nifti_image = nib.Nifti1Image(slice_pair.get("input"), affine=np.eye(4))
-                nifti_mask = nib.Nifti1Image(slice_pair.get("gt"), affine=np.eye(4))
+                image = slice_pair.get("input")
+                if image.shape[0] > max_x:
+                    max_x = image.shape[0]
+                if image.shape[1] > max_y:
+                    max_y = image.shape[1]
+                nifti_image = nib.Nifti1Image(image, affine=np.eye(4))
+                mask = slice_pair.get("gt")
+                nifti_mask = nib.Nifti1Image(mask, affine=np.eye(4))
                 nib.save(nifti_image, os.path.join(image_path, '{}.nii'.format(n_slices)))
                 nib.save(nifti_mask, os.path.join(mask_path, '{}.nii'.format(n_slices)))
                 n_slices += 1
         print("total number of slices:", n_slices)
+        print('max_x:', max_x, 'max_y:', max_y)
 
     def set_transform(self, transform):
         """This method will replace the current transformation for the
@@ -156,9 +165,26 @@ class CC359(Dataset):
 
 
 class BrainMRI2D(Dataset):
-    def __init__(self, img_root_dir, gt_root_dir=None, file_ids=None, transform=None, labeled=True, normalizer=None):
-        pass
+    def __init__(self, img_root_dir, gt_root_dir=None, file_ids=None, transform=None, labeled=True):
+        self.img_root_dir = img_root_dir
+        self.gt_root_dir = gt_root_dir
+        self.file_ids = file_ids
+        self.transform = transform
+        self.labeled = labeled
 
+        self.pairs_path = []
+        for file_id in self.file_ids:
+            img_path = os.path.join(self.img_root_dir, file_id)
+            gt_path = os.path.join(self.gt_root_dir, file_id) if not self.labeled else None
+            self.pairs_path.append((img_path, gt_path))
 
-    def __getitem__(self, item):
-        pass
+    def __getitem__(self, idx):
+        img_path, mask_path = self.pairs_path[idx]
+        image = nib.load(img_path).get_fdata()
+        mask = nib.load(mask_path).get_fdata()
+        sample = {'image': image, 'mask': mask}
+
+        if self.transform:
+            sample = self.transform(sample)
+
+        return sample

@@ -5,9 +5,9 @@ python preprocessing.py -imgs_dir /home/par/thesis/data/cc359/source/images -mas
 
   ./scripts/split-source-target.sh -r /home/par/thesis/data/cc359 -i /home/par/thesis/data/cc359/orig-sample -m /home/par/thesis/data/cc359/silver-standard-sample
 
-   ./scripts/split-source-target.sh -r /home/parisaat/scratch/benchmark_data/cc359 -i /home/parisaat/scratch/benchmark_data/cc359/original -m /home/parisaat/scratch/benchmark_data/cc359/silver_standard
+   ./scripts/split-source-target.sh -r /home/parisaat/scratch/data/cc359 -i /home/parisaat/scratch/data/cc359/original -m /home/parisaat/scratch/data/cc359/silver_standard
 
-   python preprocessing.py -imgs_dir /home/parisaat/scratch/benchmark_data/cc359/source/images -masks_dir /home/parisaat/scratch/benchmark_data/cc359/source/masks -patch_size_row 128 -patch_size_co 128
+   python data/preprocessing.py -imgs_dir /home/parisaat/scratch/data/cc359/source/images -masks_dir /home/parisaat/scratch/data/cc359/source/masks
 
 
 l226 /Users/par/PycharmProjects/Brain-MR-Segmentation-Playground/venv/lib/python3.8/site-packages/medicaltorch/datasets.py": input_data_shape[2] -> input_data_shape[self.slice_axis]
