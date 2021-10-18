@@ -24,7 +24,7 @@ class SegmentationPair(SegmentationPair2D):
         if self.gt_handle is None:
             gt_data = None
         else:
-            gt_data = self.gt_handle.get_fdata(cache_mode, dtype=np.float32)
+            gt_data = self.gt_handle.get_fdata(cache_mode, dtype=np.np.uint8)
 
         if self.normalizer:
             input_data = self.normalizer(input_data)
@@ -175,16 +175,19 @@ class BrainMRI2D(Dataset):
         self.pairs_path = []
         for file_id in self.file_ids:
             img_path = os.path.join(self.img_root_dir, file_id)
-            gt_path = os.path.join(self.gt_root_dir, file_id) if not self.labeled else None
+            gt_path = os.path.join(self.gt_root_dir, file_id) if self.labeled else None
             self.pairs_path.append((img_path, gt_path))
 
     def __getitem__(self, idx):
         img_path, mask_path = self.pairs_path[idx]
-        image = nib.load(img_path).get_fdata()
-        mask = nib.load(mask_path).get_fdata()
+        image = nib.load(img_path).get_fdata(dtype=np.float32)
+        mask = nib.load(mask_path).get_fdata(dtype=np.float32)
         sample = {'image': image, 'mask': mask}
 
         if self.transform:
-            sample = self.transform(sample)
+            sample = self.transform(image=image, mask=mask)
 
         return sample
+
+    def __len__(self):
+        return len(self.pairs_path)
