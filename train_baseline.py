@@ -25,7 +25,7 @@ def create_parser():
     parser.add_argument('-patch_height', type=int, default=128, help='patch size')
     parser.add_argument('-patch_width', type=int, default=128, help='patch size')
     parser.add_argument('-num_workers', type=int, default=16, help='number of workers')
-    parser.add_argument('-num_epochs', type=int, default=30, help='number of epochs to train for')
+    parser.add_argument('-num_epochs', type=int, default=10, help='number of epochs to train for')
     parser.add_argument('-experiment_name', type=str, default='', help='experiment name')
     parser.add_argument('-initial_lr', type=float, default=1e-3, help='learning rate of the optimizer')
     parser.add_argument('-initial_lr_rampup', type=float, default=50, help='initial learning rate rampup')
@@ -201,7 +201,8 @@ def train(opt):
                       mt_metrics.specificity_score, mt_metrics.intersection_over_union,
                       mt_metrics.accuracy_score]
 
-        validation(model, validation_dataloader, writer, metric_fns, epoch, opt)
+        validation(model, validation_dataloader, writer, metric_fns, epoch)
+        torch.save(model.state_dict(), MODEL_PATH.format(model_name='base_line'))
 
         end_time = time.time()
         total_time = end_time - start_time
