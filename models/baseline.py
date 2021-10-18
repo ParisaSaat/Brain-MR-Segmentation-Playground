@@ -5,8 +5,8 @@ ArXiv link: https://arxiv.org/abs/1811.06042
 
 import torch
 import torch.nn as nn
-from torch.nn import Module
 import torch.nn.functional as F
+from torch.nn import Module
 
 
 class DownConv(Module):
@@ -52,10 +52,11 @@ class Unet(Module):
         Networks for Biomedical Image Segmentation
         ArXiv link: https://arxiv.org/abs/1505.04597
     """
+
     def __init__(self, drop_rate=0.4, bn_momentum=0.1):
         super(Unet, self).__init__()
 
-        #Downsampling path
+        # Downsampling path
         self.conv1 = DownConv(1, 64, drop_rate, bn_momentum)
         self.mp1 = nn.MaxPool2d(2)
 
@@ -94,6 +95,6 @@ class Unet(Module):
         x10 = self.up3(x9, x1)
 
         x11 = self.conv9(x10)
-        preds = F.sigmoid(x11)
+        predictions = F.sigmoid(x11)
 
-        return preds
+        return predictions
