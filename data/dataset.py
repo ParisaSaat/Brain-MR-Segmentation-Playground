@@ -4,27 +4,74 @@ from os import makedirs
 import nibabel as nib
 import numpy as np
 from PIL import Image
-from medicaltorch.datasets import SegmentationPair2D
 from torch.utils.data import Dataset
 
+from data.utils import SliceFilter
 
-class SegmentationPair(SegmentationPair2D):
 
-    def __init__(self, input_filename, gt_filename, normalizer=None, cache=True, canonical=False):
-        super().__init__(input_filename, gt_filename, cache, canonical)
+class SegmentationPair2D(object):
+    """This class is used to build 2D segmentation datasets. It represents
+    a pair of of two data volumes (the input data and the ground truth data).
+
+    :param input_filename: the input filename (supported by nibabel).
+    :param gt_filename: the ground-truth filename.
+    :param cache: if the data should be cached in memory or not.
+    :param canonical: canonical reordering of the volume axes.
+    """
+
+    def __init__(self, input_filename, gt_filename, normalizer=None):
+        self.input_filename = input_filename
+        self.gt_filename = gt_filename
         self.normalizer = normalizer
+
+        self.input_handle = nib.load(self.input_filename)
+        self.input_affine = self.input_handle.affine
+
+        # Unlabeled data (inference time)
+        if self.gt_filename is None:
+            self.gt_handle = None
+            self.gt_affine = None
+        else:
+            self.gt_handle = nib.load(self.gt_filename)
+            self.gt_affine = self.gt_handle.affine
+
+        if len(self.input_handle.shape) > 3:
+            raise RuntimeError("4-dimensional volumes not supported.")
+
+        # Sanity check for dimensions, should be the same
+        input_shape, gt_shape = self.get_pair_shapes()
+
+        if self.gt_handle is not None:
+            if not np.allclose(input_shape, gt_shape):
+                raise RuntimeError('Input and ground truth with different dimensions.')
+
+            # Unlabeled data
+            if self.gt_handle is not None:
+                self.gt_handle = nib.as_closest_canonical(self.gt_handle)
+
+    def get_pair_shapes(self):
+        """Return the tuple (input, ground truth) representing both the input
+        and ground truth shapes."""
+        input_shape = self.input_handle.header.get_data_shape()
+
+        # Handle unlabeled data
+        if self.gt_handle is None:
+            gt_shape = None
+        else:
+            gt_shape = self.gt_handle.header.get_data_shape()
+
+        return input_shape, gt_shape
 
     def get_pair_data(self):
         """Return the tuble (input, ground truth) with the data content in
         numpy array."""
-        cache_mode = 'fill' if self.cache else 'unchanged'
-        input_data = self.input_handle.get_fdata(cache_mode, dtype=np.float32)
+        input_data = self.input_handle.get_fdata(dtype=np.float32)
 
         # Handle unlabeled data
         if self.gt_handle is None:
             gt_data = None
         else:
-            gt_data = self.gt_handle.get_fdata(cache_mode, dtype=np.np.uint8)
+            gt_data = self.gt_handle.get_fdata(dtype=np.uint8)
 
         if self.normalizer:
             input_data = self.normalizer(input_data)
@@ -32,6 +79,56 @@ class SegmentationPair(SegmentationPair2D):
                 gt_data = self.normalizer(gt_data)
 
         return input_data, gt_data
+
+    def get_pair_slice(self, slice_index, slice_axis=2):
+        """Return the specified slice from (input, ground truth).
+
+        :param slice_index: the slice number.
+        :param slice_axis: axis to make the slicing.
+        """
+        # use dataobj to avoid caching
+        input_dataobj = self.input_handle.dataobj
+
+        if self.gt_handle is None:
+            gt_dataobj = None
+        else:
+            gt_dataobj = self.gt_handle.dataobj
+
+        if slice_axis not in [0, 1, 2]:
+            raise RuntimeError("Invalid axis, must be between 0 and 2.")
+
+        if slice_axis == 2:
+            input_slice = np.asarray(input_dataobj[..., slice_index],
+                                     dtype=np.float32)
+        elif slice_axis == 1:
+            input_slice = np.asarray(input_dataobj[:, slice_index, ...],
+                                     dtype=np.float32)
+        elif slice_axis == 0:
+            input_slice = np.asarray(input_dataobj[slice_index, ...],
+                                     dtype=np.float32)
+
+        # Handle the case for unlabeled data
+        if self.gt_handle is None:
+            gt_slice = None
+        else:
+            if slice_axis == 2:
+                gt_slice = np.asarray(gt_dataobj[..., slice_index],
+                                      dtype=np.float32)
+            elif slice_axis == 1:
+                gt_slice = np.asarray(gt_dataobj[:, slice_index, ...],
+                                      dtype=np.float32)
+            elif slice_axis == 0:
+                gt_slice = np.asarray(gt_dataobj[slice_index, ...],
+                                      dtype=np.float32)
+
+        dreturn = {
+            "input": input_slice,
+            "gt": gt_slice,
+            "input_affine": self.input_affine,
+            "gt_affine": self.gt_affine,
+        }
+
+        return dreturn
 
 
 class CC359(Dataset):
@@ -47,7 +144,7 @@ class CC359(Dataset):
     NUM_SUBJECTS = 359
 
     def __init__(self, img_root_dir, gt_root_dir=None, slice_axis=1, file_ids=None, cache=True, transform=None,
-                 slice_filter_fn=None, canonical=False, labeled=True, normalizer=None):
+                 slice_filter_fn=SliceFilter, canonical=False, labeled=True, normalizer=None):
 
         self.labeled = labeled
         self.img_root_dir = img_root_dir
@@ -82,7 +179,7 @@ class CC359(Dataset):
 
     def _load_filenames(self):
         for input_filename, gt_filename in self.filename_pairs:
-            seg_pair = SegmentationPair(input_filename, gt_filename, self.normalizer, self.cache, self.canonical)
+            seg_pair = SegmentationPair2D(input_filename, gt_filename, self.normalizer)
             self.handlers.append(seg_pair)
 
     def save_slices(self, image_path, mask_path):
