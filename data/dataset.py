@@ -201,9 +201,9 @@ class CC359(Dataset):
                     max_x = image.shape[0]
                 if image.shape[1] > max_y:
                     max_y = image.shape[1]
-                nifti_image = nib.Nifti1Image(image, affine=np.eye(4))
+                nifti_image = nib.Nifti1Image(image, affine=slice_pair.get("input_affine"))
                 mask = slice_pair.get("gt")
-                nifti_mask = nib.Nifti1Image(mask, affine=np.eye(4))
+                nifti_mask = nib.Nifti1Image(mask, slice_pair.get("gt_affine"))
                 nib.save(nifti_image, os.path.join(image_path, '{}.nii'.format(n_slices)))
                 nib.save(nifti_mask, os.path.join(mask_path, '{}.nii'.format(n_slices)))
                 n_slices += 1
