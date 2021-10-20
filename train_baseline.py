@@ -12,9 +12,11 @@ from albumentations.pytorch import ToTensorV2
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import *
+import random
+from matplotlib import pyplot as plt
 
 from config.io import *
-from config.param import LAMBDA
+from config.param import *
 from data.dataset import BrainMRI2D
 from models.baseline import Unet
 
@@ -76,7 +78,7 @@ def validation(model, loader, writer, metric_fns, epoch):
         image_data, mask_data = batch['image'], batch['mask']
 
         image_data_gpu = image_data.cuda()
-        mask_data_gpu = image_data.cuda()
+        mask_data_gpu = mask_data.cuda()
 
         with torch.no_grad():
             model_out = model(image_data_gpu)
@@ -84,16 +86,24 @@ def validation(model, loader, writer, metric_fns, epoch):
             val_loss += val_class_loss.item()
 
         masks = mask_data_gpu.cpu().numpy().astype(np.uint8)
-        masks = masks.squeeze(axis=1)
+        # print('masks.shape:', masks.shape)
+        # masks = masks.squeeze(axis=1)
 
         predictions = model_out.cpu().numpy()
         predictions = predictions.squeeze(axis=1)
+        predictions = predictions > 0.5
 
         for metric_fn in metric_fns:
             for prediction, mask in zip(predictions, masks):
                 res = metric_fn(prediction, mask)
                 dict_key = 'val_{}'.format(metric_fn.__name__)
                 result_dict[dict_key] += res
+                chance = random.uniform(0, 1)
+                if chance < PLOTTING_RATE:
+                    plt.imshow(prediction, cmap='gray')
+                    plt.savefig('val_examples/{}_{}.png'.format(epoch, chance))
+                    plt.imshow(mask, cmap='gray')
+                    plt.savefig('val_examples/{}_{}_mask.png'.format(epoch, chance))
 
         num_samples += len(predictions)
         num_steps += 1
