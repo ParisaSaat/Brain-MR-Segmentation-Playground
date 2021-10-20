@@ -149,7 +149,7 @@ def train(opt):
 
     train_dataloader = get_dataloader(SOURCE_SLICES_TRAIN_IMAGES_PATH, SOURCE_SLICES_TRAIN_MASKS_PATH, opt.batch_size,
                                       train_transform)
-    validation_dataloader = get_dataloader(SOURCE_SLICES_VAL_IMAGES_PATH, SOURCE_SLICES_VAL_IMAGES_PATH, opt.batch_size,
+    validation_dataloader = get_dataloader(SOURCE_SLICES_VAL_IMAGES_PATH, SOURCE_SLICES_VAL_MASKS_PATH, opt.batch_size,
                                            val_transform)
 
     model = Unet(drop_rate=opt.drop_rate)
