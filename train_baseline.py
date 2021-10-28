@@ -11,8 +11,8 @@ from albumentations.pytorch import ToTensorV2
 from tensorboardX import SummaryWriter
 from tqdm import *
 
-from config.io import *
-from config.param import *
+from config.io import MODEL_PATH
+from config.param import LAMBDA
 from data.utils import get_dataloader
 from models.baseline import Unet
 from models.utils import EarlyStopping, scheduler
