@@ -6,8 +6,6 @@ import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
 
-from data.utils import SliceFilter
-
 
 class SegmentationPair2D(object):
     """This class is used to build 2D segmentation datasets. It represents
@@ -186,8 +184,8 @@ class CC359(Dataset):
         makedirs(image_path, exist_ok=True)
         makedirs(mask_path, exist_ok=True)
         n_slices = 0
-        max_x = 0
-        max_y = 0
+        max_x = 256
+        max_y = 288
         for seg_pair in self.handlers:
             input_data_shape, _ = seg_pair.get_pair_shapes()
             for seg_pair_slice in range(input_data_shape[self.slice_axis]):
@@ -197,26 +195,18 @@ class CC359(Dataset):
                     if not filter_fn_ret:
                         continue
                 image = slice_pair.get("input")
-                if image.shape[0] > max_x:
-                    max_x = image.shape[0]
-                if image.shape[1] > max_y:
-                    max_y = image.shape[1]
-                nifti_image = nib.Nifti1Image(image, affine=slice_pair.get("input_affine"))
                 mask = slice_pair.get("gt")
-                nifti_mask = nib.Nifti1Image(mask, slice_pair.get("gt_affine"))
+                resized_img = np.zeros((max_x, max_y))
+                resized_mask = np.zeros((max_x, max_y))
+                resized_img[:image.shape[0], :image.shape[1]] = image
+                resized_mask[:mask.shape[0], :mask.shape[1]] = mask
+                nifti_image = nib.Nifti1Image(resized_img, affine=slice_pair.get("input_affine"))
+                nifti_mask = nib.Nifti1Image(resized_mask, slice_pair.get("gt_affine"))
                 nib.save(nifti_image, os.path.join(image_path, '{}.nii'.format(n_slices)))
                 nib.save(nifti_mask, os.path.join(mask_path, '{}.nii'.format(n_slices)))
                 n_slices += 1
         print("total number of slices:", n_slices)
         print('max_x:', max_x, 'max_y:', max_y)
-
-    def set_transform(self, transform):
-        """This method will replace the current transformation for the
-        dataset.
-
-        :param transform: the new transformation
-        """
-        self.transform = transform
 
     def __len__(self):
         """Return the dataset size."""
@@ -258,7 +248,7 @@ class CC359(Dataset):
         if not mask:
             return "{id}.nii.gz".format(id=file_id)
         else:
-            return "{id}_ss.nii.gz".format(id=file_id)
+            return "{id}_staple.nii.gz".format(id=file_id)
 
 
 class BrainMRI2D(Dataset):
@@ -288,3 +278,24 @@ class BrainMRI2D(Dataset):
 
     def __len__(self):
         return len(self.pairs_path)
+
+
+class SliceFilter(object):
+
+    def __init__(self, filter_empty_mask=False,
+                 filter_empty_input=True):
+        self.filter_empty_mask = filter_empty_mask
+        self.filter_empty_input = filter_empty_input
+
+    def __call__(self, sample):
+        input_data, gt_data = sample['input'], sample['gt']
+
+        if self.filter_empty_mask:
+            if not np.any(gt_data):
+                return False
+
+        if self.filter_empty_input:
+            if not np.any(input_data):
+                return False
+
+        return True
