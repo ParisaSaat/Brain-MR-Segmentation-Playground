@@ -1,4 +1,8 @@
+import random
+from collections import defaultdict
+
 import numpy as np
+from matplotlib import pyplot as plt
 
 
 class EarlyStopping:
@@ -61,3 +65,51 @@ def scheduler(epoch, lr):
 def get_current_consistency_weight(weight, epoch, rampup):
     """Consistency ramp-up from https://arxiv.org/abs/1610.02242"""
     return weight * sigmoid_rampup(epoch, rampup)
+
+
+def validation(model, loader, writer, metric_fns, epoch, val_samples_dir):
+    val_loss = 0.0
+
+    num_samples = 0
+    num_steps = 0
+
+    result_dict = defaultdict(float)
+    for i, batch in enumerate(loader):
+        image_data, mask_data = batch['image'], batch['mask']
+
+        image_data_gpu = image_data.cuda()
+        mask_data_gpu = mask_data.cuda()
+
+        with torch.no_grad():
+            model_out = model(image_data_gpu)
+            dice_loss = mt_losses.dice_loss(model_out, mask_data_gpu)
+            val_loss += dice_loss.item()
+
+        masks = mask_data_gpu.cpu().numpy().astype(np.uint8)
+        imgs = image_data_gpu.cpu().numpy().astype(np.uint8)
+        predictions = model_out.cpu().numpy()
+        predictions = predictions.squeeze(axis=1)
+
+        for metric_fn in metric_fns:
+            for prediction, mask, img in zip(predictions, masks, imgs):
+                res = metric_fn(prediction, mask)
+                dict_key = 'val_{}'.format(metric_fn.__name__)
+                result_dict[dict_key] += res
+                chance = random.uniform(0, 1)
+                if chance < PLOTTING_RATE:
+                    plt.imshow(prediction > 0.5, cmap='gray')
+                    plt.savefig(val_samples_dir + '/{}_{}_pred.png'.format(epoch, chance))
+                    plt.imshow(mask > 0.5, cmap='gray')
+                    plt.savefig(val_samples_dir + '/{}_{}_mask.png'.format(epoch, chance))
+
+        num_samples += len(predictions)
+        num_steps += 1
+
+    val_loss_avg = val_loss / num_steps
+
+    for key, val in result_dict.items():
+        result_dict[key] = val / num_samples
+
+    writer.add_scalars('losses', {'loss': val_loss_avg}, epoch)
+    writer.add_scalars('metrics', result_dict, epoch)
+    return val_loss_avg

@@ -1,17 +1,13 @@
 import argparse
 import os.path
-import random
 import time
-from collections import defaultdict
 from os import makedirs
 
 import albumentations as A
 import medicaltorch.losses as mt_losses
 import medicaltorch.metrics as mt_metrics
-import numpy as np
 import torch
 from albumentations.pytorch import ToTensorV2
-from matplotlib import pyplot as plt
 from tensorboardX import SummaryWriter
 from tqdm import *
 
@@ -20,6 +16,7 @@ from config.param import *
 from data.utils import get_dataloader
 from models.baseline import Unet
 from models.utils import EarlyStopping, scheduler
+from models.utils import validation
 
 
 def create_parser():
@@ -43,54 +40,6 @@ def create_parser():
 
     opt = parser.parse_args()
     return opt
-
-
-def validation(model, loader, writer, metric_fns, epoch, val_samples_dir):
-    val_loss = 0.0
-
-    num_samples = 0
-    num_steps = 0
-
-    result_dict = defaultdict(float)
-    for i, batch in enumerate(loader):
-        image_data, mask_data = batch['image'], batch['mask']
-
-        image_data_gpu = image_data.cuda()
-        mask_data_gpu = mask_data.cuda()
-
-        with torch.no_grad():
-            model_out = model(image_data_gpu)
-            dice_loss = mt_losses.dice_loss(model_out, mask_data_gpu)
-            val_loss += dice_loss.item()
-
-        masks = mask_data_gpu.cpu().numpy().astype(np.uint8)
-        imgs = image_data_gpu.cpu().numpy().astype(np.uint8)
-        predictions = model_out.cpu().numpy()
-        predictions = predictions.squeeze(axis=1)
-
-        for metric_fn in metric_fns:
-            for prediction, mask, img in zip(predictions, masks, imgs):
-                res = metric_fn(prediction, mask)
-                dict_key = 'val_{}'.format(metric_fn.__name__)
-                result_dict[dict_key] += res
-                chance = random.uniform(0, 1)
-                if chance < PLOTTING_RATE:
-                    plt.imshow(prediction > 0.5, cmap='gray')
-                    plt.savefig(val_samples_dir + '/{}_{}_pred.png'.format(epoch, chance))
-                    plt.imshow(mask > 0.5, cmap='gray')
-                    plt.savefig(val_samples_dir + '/{}_{}_mask.png'.format(epoch, chance))
-
-        num_samples += len(predictions)
-        num_steps += 1
-
-    val_loss_avg = val_loss / num_steps
-
-    for key, val in result_dict.items():
-        result_dict[key] = val / num_samples
-
-    writer.add_scalars('losses', {'loss': val_loss_avg}, epoch)
-    writer.add_scalars('metrics', result_dict, epoch)
-    return val_loss_avg
 
 
 def train(opt):
