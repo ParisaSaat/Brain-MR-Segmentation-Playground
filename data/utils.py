@@ -1,11 +1,14 @@
+from os import listdir
 from os import makedirs
 
 import numpy as np
 import torch
 from sklearn.feature_extraction.image import extract_patches_2d
+from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
 from config.io import NPY_ROOT
+from data.dataset import BrainMRI2D
 
 
 def patch_data(dataset, patch_size, max_patches):
@@ -47,22 +50,8 @@ def min_max_normalization(data):
     return (data - voxel_min) / (voxel_max - voxel_min)
 
 
-class SliceFilter(object):
-
-    def __init__(self, filter_empty_mask=False,
-                 filter_empty_input=True):
-        self.filter_empty_mask = filter_empty_mask
-        self.filter_empty_input = filter_empty_input
-
-    def __call__(self, sample):
-        input_data, gt_data = sample['input'], sample['gt']
-
-        if self.filter_empty_mask:
-            if not np.any(gt_data):
-                return False
-
-        if self.filter_empty_input:
-            if not np.any(input_data):
-                return False
-
-        return True
+def get_dataloader(image_dir, mask_dir, batch_size, transform):
+    image_files = listdir(image_dir)
+    dataset = BrainMRI2D(image_dir, mask_dir, file_ids=image_files, transform=transform)
+    dataloader = DataLoader(dataset, batch_size)
+    return dataloader

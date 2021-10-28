@@ -1,7 +1,8 @@
 import argparse
+import random
 import time
 from collections import defaultdict
-from os import listdir
+from os import makedirs
 
 import albumentations as A
 import medicaltorch.losses as mt_losses
@@ -9,16 +10,15 @@ import medicaltorch.metrics as mt_metrics
 import numpy as np
 import torch
 from albumentations.pytorch import ToTensorV2
-from tensorboardX import SummaryWriter
-from torch.utils.data import DataLoader
-from tqdm import *
-import random
 from matplotlib import pyplot as plt
+from tensorboardX import SummaryWriter
+from tqdm import *
 
 from config.io import *
 from config.param import *
-from data.dataset import BrainMRI2D
+from data.utils import get_dataloader
 from models.baseline import Unet
+from models.utils import EarlyStopping, scheduler
 
 
 def create_parser():
@@ -27,13 +27,13 @@ def create_parser():
     parser.add_argument('-patch_height', type=int, default=128, help='patch size')
     parser.add_argument('-patch_width', type=int, default=128, help='patch size')
     parser.add_argument('-num_workers', type=int, default=16, help='number of workers')
-    parser.add_argument('-num_epochs', type=int, default=10, help='number of epochs to train for')
-    parser.add_argument('-experiment_name', type=str, default='', help='experiment name')
-    parser.add_argument('-initial_lr', type=float, default=1e-3, help='learning rate of the optimizer')
+    parser.add_argument('-num_epochs', type=int, default=30, help='number of epochs to train for')
+    parser.add_argument('-experiment_name', type=str, default='baseline', help='experiment name')
+    parser.add_argument('-initial_lr', type=float, default=5e-4, help='learning rate of the optimizer')
     parser.add_argument('-initial_lr_rampup', type=float, default=50, help='initial learning rate rampup')
     parser.add_argument('-decay', type=float, default=0.995, help='learning rate of the optimizer')
     parser.add_argument('-validation_split', type=float, default=0.1, help='validation split for training')
-    parser.add_argument('-patience', type=int, default=10, help='early stopping patience')
+    parser.add_argument('-patience', type=int, default=50, help='early stopping patience')
     parser.add_argument('-drop_rate', type=float, default=0.5, help='model drop rate')
     parser.add_argument('-write_images_interval', type=int, default=20, help='write sample images in every interval')
     parser.add_argument('-write_images', type=bool, default=True, help='write sample images')
@@ -42,38 +42,13 @@ def create_parser():
     return opt
 
 
-def cosine_rampdown(current, rampdown_length):
-    """Cosine rampdown from https://arxiv.org/abs/1608.03983"""
-    assert 0 <= current <= rampdown_length
-    return float(.5 * (np.cos(np.pi * current / rampdown_length) + 1))
-
-
-def cosine_lr(current_epoch, num_epochs, initial_lr):
-    return initial_lr * cosine_rampdown(current_epoch, num_epochs)
-
-
-def sigmoid_rampup(current, rampup_length):
-    if rampup_length == 0:
-        return 1.0
-    else:
-        current = np.clip(current, 0.0, rampup_length)
-        phase = 1.0 - current / rampup_length
-        return float(np.exp(-5.0 * phase * phase))
-
-
-def get_current_consistency_weight(weight, epoch, rampup):
-    """Consistency ramp-up from https://arxiv.org/abs/1610.02242"""
-    return weight * sigmoid_rampup(epoch, rampup)
-
-
-def validation(model, loader, writer, metric_fns, epoch):
+def validation(model, loader, writer, metric_fns, epoch, val_samples_dir):
     val_loss = 0.0
 
     num_samples = 0
     num_steps = 0
 
     result_dict = defaultdict(float)
-
     for i, batch in enumerate(loader):
         image_data, mask_data = batch['image'], batch['mask']
 
@@ -82,28 +57,25 @@ def validation(model, loader, writer, metric_fns, epoch):
 
         with torch.no_grad():
             model_out = model(image_data_gpu)
-            val_class_loss = mt_losses.dice_loss(model_out, mask_data_gpu)
-            val_loss += val_class_loss.item()
+            dice_loss = mt_losses.dice_loss(model_out, mask_data_gpu)
+            val_loss += dice_loss.item()
 
         masks = mask_data_gpu.cpu().numpy().astype(np.uint8)
-        # print('masks.shape:', masks.shape)
-        # masks = masks.squeeze(axis=1)
-
+        imgs = image_data_gpu.cpu().numpy().astype(np.uint8)
         predictions = model_out.cpu().numpy()
         predictions = predictions.squeeze(axis=1)
-        predictions = predictions > 0.5
 
         for metric_fn in metric_fns:
-            for prediction, mask in zip(predictions, masks):
+            for prediction, mask, img in zip(predictions, masks, imgs):
                 res = metric_fn(prediction, mask)
                 dict_key = 'val_{}'.format(metric_fn.__name__)
                 result_dict[dict_key] += res
                 chance = random.uniform(0, 1)
                 if chance < PLOTTING_RATE:
-                    plt.imshow(prediction, cmap='gray')
-                    plt.savefig('val_examples/{}_{}.png'.format(epoch, chance))
-                    plt.imshow(mask, cmap='gray')
-                    plt.savefig('val_examples/{}_{}_mask.png'.format(epoch, chance))
+                    plt.imshow(prediction > 0.5, cmap='gray')
+                    plt.savefig(val_samples_dir + '/{}_{}_pred.png'.format(epoch, chance))
+                    plt.imshow(mask > 0.5, cmap='gray')
+                    plt.savefig(val_samples_dir + '/{}_{}_mask.png'.format(epoch, chance))
 
         num_samples += len(predictions)
         num_steps += 1
@@ -115,27 +87,25 @@ def validation(model, loader, writer, metric_fns, epoch):
 
     writer.add_scalars('losses', {'loss': val_loss_avg}, epoch)
     writer.add_scalars('metrics', result_dict, epoch)
-
-
-def get_dataloader(image_dir, mask_dir, batch_size, transform):
-    image_files = listdir(image_dir)
-    dataset = BrainMRI2D(image_dir, mask_dir, file_ids=image_files, transform=transform)
-    dataloader = DataLoader(dataset, batch_size)
-    return dataloader
+    return val_loss_avg
 
 
 def train(opt):
+    experiment_name = opt.experiment_name
+    val_samples_dir = 'val_samples_{}'.format(experiment_name)
+    makedirs(val_samples_dir)
     if torch.cuda.is_available():
         print('cuda is available')
         torch.cuda.set_device("cuda:0")
+
+    lr = opt.initial_lr
 
     patch_size = (opt.patch_height, opt.patch_width)
 
     train_transform = A.Compose(
         [
-            A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, rotate_limit=10, p=0.5),
+            A.ShiftScaleRotate(),
             A.RandomCrop(height=patch_size[0], width=patch_size[1]),
-            A.RandomBrightnessContrast(p=0.5),
             ToTensorV2(),
         ]
     )
@@ -156,19 +126,15 @@ def train(opt):
     model.cuda()
 
     optimizer = torch.optim.Adam(model.parameters(), weight_decay=LAMBDA, lr=opt.initial_lr)
-    initial_lr = opt.initial_lr
     num_epochs = opt.num_epochs
+    early_stopping = EarlyStopping(opt.patience, 0.002)
 
     writer = SummaryWriter(log_dir="log_{}".format(opt.experiment_name))
 
     for epoch in tqdm(range(1, num_epochs + 1), desc="Epochs"):
         start_time = time.time()
 
-        initial_lr_rampup = opt.initial_lr_rampup
-        if epoch <= initial_lr_rampup:
-            lr = initial_lr * sigmoid_rampup(epoch, initial_lr_rampup)
-        else:
-            lr = cosine_lr(epoch - initial_lr_rampup, num_epochs - initial_lr_rampup, initial_lr)
+        lr = scheduler(epoch, lr)
 
         writer.add_scalar('learning_rate', lr, epoch)
 
@@ -194,13 +160,12 @@ def train(opt):
             optimizer.step()
 
             loss_total += loss.item()
-            #
             num_steps += 1
 
         loss_avg = loss_total / num_steps
 
         tqdm.write("Steps p/ Epoch: {}".format(num_steps))
-        tqdm.write("Class Loss: {:.6f}".format(loss_avg))
+        tqdm.write("Train Loss: {:.6f}".format(loss_avg))
 
         writer.add_scalars('losses', {'loss': loss_avg}, epoch)
 
@@ -211,12 +176,16 @@ def train(opt):
                       mt_metrics.specificity_score, mt_metrics.intersection_over_union,
                       mt_metrics.accuracy_score]
 
-        validation(model, validation_dataloader, writer, metric_fns, epoch)
-        torch.save(model.state_dict(), MODEL_PATH.format(model_name='base_line'))
+        val_loss = validation(model, validation_dataloader, writer, metric_fns, epoch, val_samples_dir)
+        tqdm.write("Validation Loss: {:.6f}".format(val_loss))
+        early_stop = early_stopping(val_loss)
+        torch.save(model, MODEL_PATH.format(model_name='{}'.format(experiment_name)))
 
         end_time = time.time()
         total_time = end_time - start_time
         tqdm.write("Epoch {} took {:.2f} seconds.".format(epoch, total_time))
+        if early_stop:
+            break
 
 
 if __name__ == '__main__':
