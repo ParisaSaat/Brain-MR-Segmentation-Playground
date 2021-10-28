@@ -1,4 +1,5 @@
 import argparse
+import os.path
 import random
 import time
 from collections import defaultdict
@@ -37,6 +38,8 @@ def create_parser():
     parser.add_argument('-drop_rate', type=float, default=0.5, help='model drop rate')
     parser.add_argument('-write_images_interval', type=int, default=20, help='write sample images in every interval')
     parser.add_argument('-write_images', type=bool, default=True, help='write sample images')
+    parser.add_argument('-train_dir', type=str, default='Directory of training data', help='train data directory')
+    parser.add_argument('-val_dir', type=str, default='Directory of validation data', help='validation data directory')
 
     opt = parser.parse_args()
     return opt
@@ -92,6 +95,8 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir):
 
 def train(opt):
     experiment_name = opt.experiment_name
+    train_dir = opt.train_dir
+    val_dir = opt.val_dir
     val_samples_dir = 'val_samples_{}'.format(experiment_name)
     makedirs(val_samples_dir)
     if torch.cuda.is_available():
@@ -117,10 +122,10 @@ def train(opt):
         ]
     )
 
-    train_dataloader = get_dataloader(SOURCE_SLICES_TRAIN_IMAGES_PATH, SOURCE_SLICES_TRAIN_MASKS_PATH, opt.batch_size,
-                                      train_transform)
-    validation_dataloader = get_dataloader(SOURCE_SLICES_VAL_IMAGES_PATH, SOURCE_SLICES_VAL_MASKS_PATH, opt.batch_size,
-                                           val_transform)
+    train_dataloader = get_dataloader(os.path.join(train_dir, 'images'), os.path.join(train_dir, 'masks'),
+                                      opt.batch_size, train_transform)
+    validation_dataloader = get_dataloader(os.path.join(val_dir, 'images'), os.path.join(val_dir, 'masks'),
+                                           opt.batch_size, val_transform)
 
     model = Unet(drop_rate=opt.drop_rate)
     model.cuda()
