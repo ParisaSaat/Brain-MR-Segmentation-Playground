@@ -5,6 +5,28 @@ import nibabel as nib
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
+from config.param import SLICE_HEIGHT, SLICE_WIDTH
+
+
+class SliceFilter(object):
+
+    def __init__(self, filter_empty_mask=False,
+                 filter_empty_input=True):
+        self.filter_empty_mask = filter_empty_mask
+        self.filter_empty_input = filter_empty_input
+
+    def __call__(self, sample):
+        input_data, gt_data = sample['input'], sample['gt']
+
+        if self.filter_empty_mask:
+            if not np.any(gt_data):
+                return False
+
+        if self.filter_empty_input:
+            if not np.any(input_data):
+                return False
+
+        return True
 
 
 class SegmentationPair2D(object):
@@ -184,8 +206,6 @@ class CC359(Dataset):
         makedirs(image_path, exist_ok=True)
         makedirs(mask_path, exist_ok=True)
         n_slices = 0
-        max_x = 256
-        max_y = 288
         for seg_pair in self.handlers:
             input_data_shape, _ = seg_pair.get_pair_shapes()
             for seg_pair_slice in range(input_data_shape[self.slice_axis]):
@@ -196,8 +216,8 @@ class CC359(Dataset):
                         continue
                 image = slice_pair.get("input")
                 mask = slice_pair.get("gt")
-                resized_img = np.zeros((max_x, max_y))
-                resized_mask = np.zeros((max_x, max_y))
+                resized_img = np.zeros((SLICE_HEIGHT, SLICE_WIDTH))
+                resized_mask = np.zeros((SLICE_HEIGHT, SLICE_WIDTH))
                 resized_img[:image.shape[0], :image.shape[1]] = image
                 resized_mask[:mask.shape[0], :mask.shape[1]] = mask
                 nifti_image = nib.Nifti1Image(resized_img, affine=slice_pair.get("input_affine"))
@@ -206,7 +226,6 @@ class CC359(Dataset):
                 nib.save(nifti_mask, os.path.join(mask_path, '{}.nii'.format(n_slices)))
                 n_slices += 1
         print("total number of slices:", n_slices)
-        print('max_x:', max_x, 'max_y:', max_y)
 
     def __len__(self):
         """Return the dataset size."""
@@ -278,24 +297,3 @@ class BrainMRI2D(Dataset):
 
     def __len__(self):
         return len(self.pairs_path)
-
-
-class SliceFilter(object):
-
-    def __init__(self, filter_empty_mask=False,
-                 filter_empty_input=True):
-        self.filter_empty_mask = filter_empty_mask
-        self.filter_empty_input = filter_empty_input
-
-    def __call__(self, sample):
-        input_data, gt_data = sample['input'], sample['gt']
-
-        if self.filter_empty_mask:
-            if not np.any(gt_data):
-                return False
-
-        if self.filter_empty_input:
-            if not np.any(input_data):
-                return False
-
-        return True
