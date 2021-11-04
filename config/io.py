@@ -76,11 +76,11 @@ NORMALIZED_IMAGES_PATH = {
 NORMALIZED_IMAGES_PATH = NORMALIZED_IMAGES_PATH[PROCESS_ENV]
 
 MODEL_PATH = {
-    'TEST': '/home/par/PycharmProjects/Brain-MR-Segmentation-Playground/models/{model_name}',
-    'PRODUCTION': '/home/parisaat/scratch/Brain-MR-Segmentation-Playground/models/{model_name}',
+    'TEST': '/home/par/PycharmProjects/Brain-MR-Segmentation-Playground/models/{model_name}.pth',
+    'PRODUCTION': '/home/parisaat/scratch/Brain-MR-Segmentation-Playground/models/{model_name}.pth',
 }
 MODEL_PATH = MODEL_PATH[PROCESS_ENV]
 
 IMAGE_FILE_TEMPLATE = '{file_id}.nii.gz'
-MASK_FILE_TEMPLATE = '{file_id}_ss.nii.gz'
+MASK_FILE_TEMPLATE = '{file_id}_staple.nii.gz'
 NORMALIZED_IMAGES_TEMPLATE = '{file_id}.nii'
