@@ -31,7 +31,7 @@ def create_parser():
     parser.add_argument('-initial_lr_rampup', type=float, default=50, help='initial learning rate rampup')
     parser.add_argument('-decay', type=float, default=0.995, help='learning rate of the optimizer')
     parser.add_argument('-validation_split', type=float, default=0.1, help='validation split for training')
-    parser.add_argument('-patience', type=int, default=50, help='early stopping patience')
+    parser.add_argument('-patience', type=int, default=10, help='early stopping patience')
     parser.add_argument('-drop_rate', type=float, default=0.5, help='model drop rate')
     parser.add_argument('-write_images_interval', type=int, default=20, help='write sample images in every interval')
     parser.add_argument('-write_images', type=bool, default=True, help='write sample images')

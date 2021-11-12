@@ -267,7 +267,7 @@ class CC359(Dataset):
         if not mask:
             return "{id}.nii.gz".format(id=file_id)
         else:
-            return "{id}_staple.nii.gz".format(id=file_id)
+            return "{id}_pveseg.nii.gz".format(id=file_id)
 
 
 class BrainMRI2D(Dataset):
@@ -286,13 +286,26 @@ class BrainMRI2D(Dataset):
 
     def __getitem__(self, idx):
         img_path, mask_path = self.pairs_path[idx]
-        image = nib.load(img_path).get_fdata(dtype=np.float32)
-        mask = nib.load(mask_path).get_fdata(dtype=np.float32)
-        sample = {'image': image, 'mask': mask}
+        nifti_image = nib.load(img_path)
+        image_affine = nifti_image.affine
+        image = nifti_image.get_fdata(dtype=np.float32)
+        nifti_mask = nib.load(mask_path)
+        mask = nifti_mask.get_fdata(dtype=np.float32)
+        mask_affine = nifti_mask.affine
 
         if self.transform:
-            sample = self.transform(image=image, mask=mask)
-
+            # nifti_image = nib.Nifti1Image(image, affine=image_affine)
+            # nifti_mask = nib.Nifti1Image(mask, affine=mask_affine)
+            # nib.save(nifti_image, 'aug_samples/{}_img_b.nii'.format(idx))
+            # nib.save(nifti_mask, 'aug_samples/{}_mask_b.nii'.format(idx))
+            transformed = self.transform(image=image, mask=mask)
+            image = transformed.get('image')
+            mask = transformed.get('mask')
+            # nifti_image = nib.Nifti1Image(image.numpy()[0, :, :], affine=image_affine)
+            # nifti_mask = nib.Nifti1Image(mask.numpy(), affine=mask_affine)
+            # nib.save(nifti_image, 'aug_samples/{}_img_a.nii'.format(idx))
+            # nib.save(nifti_mask, 'aug_samples/{}_mask_a.nii'.format(idx))
+        sample = {'image': image, 'mask': mask, 'mask_affine': mask_affine, 'image_affine': image_affine, 'idx': idx}
         return sample
 
     def __len__(self):

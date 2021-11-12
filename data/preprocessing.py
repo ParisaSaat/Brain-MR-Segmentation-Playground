@@ -12,7 +12,7 @@ from data.utils import min_max_normalization
 
 def split_data(data_dir, ratio):
     imgs_dir = os.path.join(data_dir, 'images')
-    masks_dir = os.path.join(data_dir, 'masks')
+    masks_dir = os.path.join(data_dir, 'masks_wgc')
     train_dir = os.path.join(data_dir, 'train')
     test_dir = os.path.join(data_dir, 'test')
 
@@ -26,10 +26,10 @@ def split_data(data_dir, ratio):
 
     train_files, test_files = train_test_split(file_ids, test_size=ratio, random_state=42, shuffle=True, stratify=mf)
 
-    copy_files(train_files, imgs_dir, os.path.join(train_dir, 'images'), IMAGE_FILE_TEMPLATE)
-    copy_files(train_files, masks_dir, os.path.join(train_dir, 'masks'), MASK_FILE_TEMPLATE)
-    copy_files(test_files, imgs_dir, os.path.join(test_dir, 'images'), IMAGE_FILE_TEMPLATE)
-    copy_files(test_files, masks_dir, os.path.join(test_dir, 'masks'), MASK_FILE_TEMPLATE)
+    copy_files(train_files, imgs_dir, os.path.join(train_dir, 'images_wgc'), IMAGE_FILE_TEMPLATE)
+    copy_files(train_files, masks_dir, os.path.join(train_dir, 'masks_wgc'), MASK_FILE_TEMPLATE)
+    copy_files(test_files, imgs_dir, os.path.join(test_dir, 'images_wgc'), IMAGE_FILE_TEMPLATE)
+    copy_files(test_files, masks_dir, os.path.join(test_dir, 'masks_wgc'), MASK_FILE_TEMPLATE)
 
     return train_files, test_files
 
@@ -54,16 +54,16 @@ def create_parser():
 
 def preprocess(opt):
     data_dir = opt.data_dir
-    slices_train_images_path = os.path.join(data_dir, 'slices/train/images')
-    slices_train_masks_path = os.path.join(data_dir, 'slices/train/masks')
-    slices_test_images_path = os.path.join(data_dir, 'slices/test/images')
-    slices_test_masks_path = os.path.join(data_dir, 'slices/test/masks')
+    slices_train_images_path = os.path.join(data_dir, 'slices/train/images_wgc')
+    slices_train_masks_path = os.path.join(data_dir, 'slices/train/masks_wgc')
+    slices_test_images_path = os.path.join(data_dir, 'slices/test/images_wgc')
+    slices_test_masks_path = os.path.join(data_dir, 'slices/test/masks_wgc')
 
     train_files, test_files = split_data(data_dir, opt.test_ratio)
-    train_set = CC359(os.path.join(data_dir, 'train/images'), os.path.join(data_dir, 'train/masks'), opt.plane,
+    train_set = CC359(os.path.join(data_dir, 'train/images_wgc'), os.path.join(data_dir, 'train/masks_wgc'), opt.plane,
                       train_files, normalizer=min_max_normalization)
-    test_set = CC359(os.path.join(data_dir, 'test/images'), os.path.join(data_dir, 'test/masks'), opt.plane, test_files,
-                     normalizer=min_max_normalization)
+    test_set = CC359(os.path.join(data_dir, 'test/images_wgc'), os.path.join(data_dir, 'test/masks_wgc'), opt.plane,
+                     test_files, normalizer=min_max_normalization)
     train_set.save_slices(slices_train_images_path, slices_train_masks_path)
     test_set.save_slices(slices_test_images_path, slices_test_masks_path)
 
