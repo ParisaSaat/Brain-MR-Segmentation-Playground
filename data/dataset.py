@@ -271,12 +271,13 @@ class CC359(Dataset):
 
 
 class BrainMRI2D(Dataset):
-    def __init__(self, img_root_dir, gt_root_dir=None, file_ids=None, transform=None, labeled=True):
+    def __init__(self, img_root_dir, gt_root_dir=None, file_ids=None, transform=None, labeled=True, mean_teacher=False):
         self.img_root_dir = img_root_dir
         self.gt_root_dir = gt_root_dir
         self.file_ids = file_ids
         self.transform = transform
         self.labeled = labeled
+        self.mean_teacher = mean_teacher
 
         self.pairs_path = []
         for file_id in self.file_ids:
@@ -298,9 +299,14 @@ class BrainMRI2D(Dataset):
             # nifti_mask = nib.Nifti1Image(mask, affine=mask_affine)
             # nib.save(nifti_image, 'aug_samples/{}_img_b.nii'.format(idx))
             # nib.save(nifti_mask, 'aug_samples/{}_mask_b.nii'.format(idx))
-            transformed = self.transform(image=image, mask=mask)
-            image = transformed.get('image')
-            mask = transformed.get('mask')
+            if self.mean_teacher:
+                transformed = self.transform({'input': Image.fromarray(image), 'gt': Image.fromarray(mask)})
+                image = transformed.get('input')
+                mask = transformed.get('gt')
+            else:
+                transformed = self.transform(image=image, mask=mask)
+                image = transformed.get('image')
+                mask = transformed.get('mask')
             # nifti_image = nib.Nifti1Image(image.numpy()[0, :, :], affine=image_affine)
             # nifti_mask = nib.Nifti1Image(mask.numpy(), affine=mask_affine)
             # nib.save(nifti_image, 'aug_samples/{}_img_a.nii'.format(idx))

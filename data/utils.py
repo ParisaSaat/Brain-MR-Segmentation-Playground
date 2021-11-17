@@ -51,9 +51,9 @@ def min_max_normalization(data):
 
 
 def get_dataloader(image_dir, mask_dir, batch_size, transform, collate_fn, shuffle=True, drop_last=True,
-                   pin_memory=True, num_workers=0):
+                   pin_memory=True, num_workers=0, mean_teacher=False):
     image_files = listdir(image_dir)
-    dataset = BrainMRI2D(image_dir, mask_dir, file_ids=image_files, transform=transform)
+    dataset = BrainMRI2D(image_dir, mask_dir, file_ids=image_files, transform=transform, mean_teacher=mean_teacher)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last,
                             num_workers=num_workers,
                             collate_fn=collate_fn,

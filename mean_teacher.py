@@ -120,7 +120,7 @@ def validation(model, model_ema, loader, writer,
         input_data, gt_data = batch['image'], batch['mask']
 
         input_data_gpu = input_data.cuda()
-        gt_data_gpu = gt_data.cuda(async=True)
+        gt_data_gpu = gt_data.cuda()
 
         with torch.no_grad():
             model_out = model(input_data_gpu)
@@ -230,8 +230,6 @@ def cmd_train(ctx):
     initial_lr = ctx["initial_lr"]
     consistency_rampup = ctx["consistency_rampup"]
     weight_decay = ctx["weight_decay"]
-    rootdir_gmchallenge_train = ctx["rootdir_gmchallenge_train"]
-    rootdir_gmchallenge_test = ctx["rootdir_gmchallenge_test"]
     supervised_only = ctx["supervised_only"]
 
     # Decay for learning rate
@@ -262,7 +260,7 @@ def cmd_train(ctx):
 
     # Training source data augmentation
     source_transform = tv.transforms.Compose([
-        mt_transforms.CenterCrop2D((250, 250)),
+        mt_transforms.CenterCrop2D((256, 256)),
         mt_transforms.ElasticTransform(alpha_range=(28.0, 30.0),
                                        sigma_range=(3.5, 4.0),
                                        p=0.3),
@@ -276,14 +274,14 @@ def cmd_train(ctx):
 
     # Target adaptation data augmentation
     target_adapt_transform = tv.transforms.Compose([
-        mt_transforms.CenterCrop2D((250, 250), labeled=False),
+        mt_transforms.CenterCrop2D((256, 256), labeled=False),
         mt_transforms.ToTensor(),
         mt_transforms.NormalizeInstance(),
     ])
 
     # Target adaptation data augmentation
     target_val_adapt_transform = tv.transforms.Compose([
-        mt_transforms.CenterCrop2D((250, 250)),
+        mt_transforms.CenterCrop2D((256, 256)),
         mt_transforms.ToTensor(),
         mt_transforms.NormalizeInstance(),
     ])
@@ -296,7 +294,7 @@ def cmd_train(ctx):
     source_train_loader = get_dataloader(os.path.join(ctx['train_dir'], 'images'),
                                          os.path.join(ctx['train_dir'], 'masks'), ctx["source_batch_size"],
                                          source_transform, shuffle=True, drop_last=True, num_workers=num_workers,
-                                         collate_fn=mt_datasets.mt_collate, pin_memory=True)
+                                         collate_fn=mt_datasets.mt_collate, pin_memory=True, mean_teacher=True)
 
     # Sample Xt1, Xt2 from this
     '''
@@ -310,13 +308,14 @@ def cmd_train(ctx):
                                                os.path.join(ctx['target_train_dir'], 'masks'),
                                                ctx["target_batch_size"], target_adapt_transform,
                                                shuffle=True, drop_last=True, num_workers=num_workers,
-                                               collate_fn=mt_datasets.mt_collate, pin_memory=True)
+                                               collate_fn=mt_datasets.mt_collate, pin_memory=True, mean_teacher=True)
 
     # Sample Xv, Yv from this
     validation_dataloader = get_dataloader(os.path.join(ctx['target_val_dir'], 'images'),
                                            os.path.join(ctx['target_val_dir'], 'masks'), ctx["target_batch_size"],
                                            target_val_adapt_transform, shuffle=False, drop_last=False,
-                                           num_workers=num_workers, collate_fn=mt_datasets.mt_collate, pin_memory=True)
+                                           num_workers=num_workers, collate_fn=mt_datasets.mt_collate, pin_memory=True,
+                                           mean_teacher=True)
 
     model = create_model(ctx)
 
@@ -374,9 +373,9 @@ def cmd_train(ctx):
             # Keys: 'input', 'gt', 'input_metadata', 'gt_metadata'
 
             # Supervised component --------------------------------------------
-            train_input, train_gt = train_batch["input"], train_batch["gt"]
+            train_input, train_gt = train_batch["image"], train_batch["mask"]
             train_input = train_input.cuda()
-            train_gt = train_gt.cuda(async=True)
+            train_gt = train_gt.cuda()
             preds_supervised = model(train_input)
             class_loss = mt_losses.dice_loss(preds_supervised, train_gt)
 
