@@ -18,6 +18,7 @@ def create_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-batch_size', type=int, default=32, help='input batch size')
     parser.add_argument('-data_dir', type=str, help='images directory name')
+    parser.add_argument('-mode', type=str, help='fine-tuning mode')
     parser.add_argument('-model_name', type=str, default='baseline', help='model to load for inference')
     parser.add_argument('-experiment_name', type=str, default='tl', help='experiment name')
     parser.add_argument('-num_epochs', type=int, default=15, help='number of epochs to train for')
@@ -30,6 +31,7 @@ def create_parser():
 
 def tl(opt):
     num_epochs = opt.num_epochs
+    mode = opt.mode
     if torch.cuda.is_available():
         torch.cuda.set_device("cuda:0")
     start_time = time.time()
@@ -50,8 +52,9 @@ def tl(opt):
     model = torch.load(MODEL_PATH.format(model_name=opt.model_name))
     model.cuda()
     ct = 0
+    model_size = len(model.children())
     for child in model.children():
-        if ct != 0:
+        if (mode == 'first' and ct != 0) or (mode == 'last' and ct != model_size - 1):
             for param in child.parameters():
                 param.requires_grad = False
         ct += 1
