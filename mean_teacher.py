@@ -269,21 +269,21 @@ def cmd_train(ctx):
                                    translate=(0.03, 0.03)),
         mt_transforms.RandomTensorChannelShift((-0.10, 0.10)),
         mt_transforms.ToTensor(),
-        mt_transforms.NormalizeInstance(),
+        # mt_transforms.NormalizeInstance(),
     ])
 
     # Target adaptation data augmentation
     target_adapt_transform = tv.transforms.Compose([
         mt_transforms.CenterCrop2D((256, 256), labeled=False),
         mt_transforms.ToTensor(),
-        mt_transforms.NormalizeInstance(),
+        # mt_transforms.NormalizeInstance(),
     ])
 
     # Target adaptation data augmentation
     target_val_adapt_transform = tv.transforms.Compose([
         mt_transforms.CenterCrop2D((256, 256)),
         mt_transforms.ToTensor(),
-        mt_transforms.NormalizeInstance(),
+        # mt_transforms.NormalizeInstance(),
     ])
 
     # Xs, Ys = Source input and source label, train
@@ -388,7 +388,7 @@ def cmd_train(ctx):
                     target_adapt_train_iter = iter(target_adapt_train_loader)
                     target_adapt_batch = target_adapt_train_iter.next()
 
-                target_adapt_input = target_adapt_batch["input"]
+                target_adapt_input = target_adapt_batch["image"]
                 target_adapt_input = target_adapt_input.cuda()
 
                 # Teacher forward
@@ -398,8 +398,8 @@ def cmd_train(ctx):
                 linked_aug_batch = \
                     linked_batch_augmentation(target_adapt_input, teacher_preds_unsup)
 
-                adapt_input_batch = linked_aug_batch['input'][0].cuda()
-                teacher_preds_unsup_aug = linked_aug_batch['input'][1].cuda()
+                adapt_input_batch = linked_aug_batch['image'][0].cuda()
+                teacher_preds_unsup_aug = linked_aug_batch['image'][1].cuda()
 
                 # Student forward
                 student_preds_unsup = model(adapt_input_batch)
