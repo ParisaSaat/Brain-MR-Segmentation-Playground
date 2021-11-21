@@ -50,7 +50,7 @@ def min_max_normalization(data):
     return (data - voxel_min) / (voxel_max - voxel_min)
 
 
-def get_dataloader(image_dir, mask_dir, batch_size, transform, collate_fn, shuffle=True, drop_last=True,
+def get_dataloader(image_dir, mask_dir, batch_size, transform, collate_fn=None, shuffle=True, drop_last=True,
                    pin_memory=True, num_workers=0, mean_teacher=False):
     image_files = listdir(image_dir)
     dataset = BrainMRI2D(image_dir, mask_dir, file_ids=image_files, transform=transform, mean_teacher=mean_teacher)
