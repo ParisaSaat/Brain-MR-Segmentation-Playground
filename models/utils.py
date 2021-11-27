@@ -71,7 +71,7 @@ def get_current_consistency_weight(weight, epoch, rampup):
     return weight * sigmoid_rampup(epoch, rampup)
 
 
-def validation(model, loader, writer, metric_fns, epoch, val_samples_dir):
+def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, one_hot_mask=False):
     val_loss = 0.0
 
     num_samples = 0
@@ -80,7 +80,8 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir):
     result_dict = defaultdict(float)
     for i, batch in enumerate(loader):
         image_data, mask_data = batch['image'], batch['mask']
-
+        if one_hot_mask:
+            one_hot_mask = torch.nn.functional.one_hot(mask_data.long(), num_classes=4).transpose(1, 3).squeeze(-1)
         image_data_gpu = image_data.cuda()
         mask_data_gpu = mask_data.cuda()
 
