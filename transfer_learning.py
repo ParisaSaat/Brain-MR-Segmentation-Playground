@@ -52,9 +52,8 @@ def tl(opt):
     model = torch.load(MODEL_PATH.format(model_name=opt.model_name))
     model.cuda()
     ct = 0
-    model_size = len(model.children())
     for child in model.children():
-        if (mode == 'first' and ct != 0) or (mode == 'last' and ct != model_size - 1):
+        if (mode == 'first' and ct != 0) or (mode == 'last' and ct != 9):
             for param in child.parameters():
                 param.requires_grad = False
         ct += 1
