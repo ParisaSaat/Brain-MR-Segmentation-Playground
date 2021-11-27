@@ -27,6 +27,7 @@ def create_parser():
     parser.add_argument('-num_workers', type=int, default=16, help='number of workers')
     parser.add_argument('-num_epochs', type=int, default=30, help='number of epochs to train for')
     parser.add_argument('-experiment_name', type=str, default='baseline', help='experiment name')
+    parser.add_argument('-problem', type=str, default='skull-stripping', help='segmentation problem')
     parser.add_argument('-initial_lr', type=float, default=5e-4, help='learning rate of the optimizer')
     parser.add_argument('-initial_lr_rampup', type=float, default=50, help='initial learning rate rampup')
     parser.add_argument('-decay', type=float, default=0.995, help='learning rate of the optimizer')
@@ -70,10 +71,11 @@ def train(opt):
             ToTensorV2(),
         ]
     )
-
-    train_dataloader = get_dataloader(os.path.join(train_dir, 'images'), os.path.join(train_dir, 'masks'),
+    img_pth = 'images_wgc' if opt.problem == 'wgc' else 'images'
+    msk_pth = 'masks_wgc' if opt.problem == 'wgc' else 'masks'
+    train_dataloader = get_dataloader(os.path.join(train_dir, img_pth), os.path.join(train_dir, msk_pth),
                                       opt.batch_size, train_transform)
-    validation_dataloader = get_dataloader(os.path.join(val_dir, 'images'), os.path.join(val_dir, 'masks'),
+    validation_dataloader = get_dataloader(os.path.join(val_dir, img_pth), os.path.join(val_dir, msk_pth),
                                            opt.batch_size, val_transform)
 
     model = Unet(drop_rate=opt.drop_rate)
@@ -105,7 +107,11 @@ def train(opt):
         for i, train_batch in enumerate(train_dataloader):
             train_image, train_mask = train_batch['image'], train_batch['mask']
             train_image = train_image.cuda()
-            train_mask = train_mask.cuda()
+            if opt.problem == 'wgc':
+                one_hot_mask = torch.nn.functional.one_hot(train_mask.long(), num_classes=4).transpose(1, 3).squeeze(-1)
+                train_mask = one_hot_mask.cuda()
+            else:
+                train_mask = train_mask.cuda()
             prediction = model(train_image)
             loss = mt_losses.dice_loss(prediction, train_mask)
             optimizer.zero_grad()
