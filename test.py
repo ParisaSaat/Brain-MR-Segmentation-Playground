@@ -20,6 +20,7 @@ def create_parser():
     parser.add_argument('-model_name', type=str, default='baseline', help='model to load for inference')
     parser.add_argument('-experiment_name', type=str, default='baseline_test', help='experiment name')
     parser.add_argument('-data_dir', type=str, default='', help='test data directory')
+    parser.add_argument('-problem', type=str, default='skull-stripping', help='segmentation problem')
     opt = parser.parse_args()
     return opt
 
@@ -36,8 +37,9 @@ def main(opt):
         ]
     )
     writer = SummaryWriter(log_dir="log_test_{}".format(opt.experiment_name))
-
-    test_dataloader = get_dataloader(os.path.join(data_dir, 'images'), os.path.join(data_dir, 'masks'), 16,
+    img_pth = 'images_wgc' if opt.problem == 'wgc' else 'images'
+    msk_pth = 'masks_wgc' if opt.problem == 'wgc' else 'masks'
+    test_dataloader = get_dataloader(os.path.join(data_dir, img_pth), os.path.join(data_dir, msk_pth), 16,
                                      test_transform)
     metric_fns = [mt_metrics.dice_score, mt_metrics.jaccard_score, mt_metrics.hausdorff_score,
                   mt_metrics.precision_score, mt_metrics.recall_score,
