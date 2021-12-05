@@ -71,14 +71,15 @@ def train(opt):
             ToTensorV2(),
         ]
     )
+    one_hot = opt.problem == 'wgc'
     img_pth = 'images_wgc' if opt.problem == 'wgc' else 'images'
     msk_pth = 'masks_wgc' if opt.problem == 'wgc' else 'masks'
     train_dataloader = get_dataloader(os.path.join(train_dir, img_pth), os.path.join(train_dir, msk_pth),
                                       opt.batch_size, train_transform)
     validation_dataloader = get_dataloader(os.path.join(val_dir, img_pth), os.path.join(val_dir, msk_pth),
                                            opt.batch_size, val_transform)
-
-    model = Unet(drop_rate=opt.drop_rate)
+    out_channels = 4 if opt.problem == 'wgc' else 1
+    model = Unet(drop_rate=opt.drop_rate, out_channels=out_channels)
     model.cuda()
 
     optimizer = torch.optim.Adam(model.parameters(), weight_decay=LAMBDA, lr=opt.initial_lr)
@@ -108,12 +109,17 @@ def train(opt):
             train_image, train_mask = train_batch['image'], train_batch['mask']
             train_image = train_image.cuda()
             if opt.problem == 'wgc':
-                one_hot_mask = torch.nn.functional.one_hot(train_mask.long(), num_classes=4).transpose(1, 3).squeeze(-1)
-                train_mask = one_hot_mask.cuda()
+                one_hot_mask = torch.nn.functional.one_hot(train_mask.long(), num_classes=4).squeeze(-1)
+                train_mask = one_hot_mask.cuda().float()
+                prediction = model(train_image)
+                loss = 0
+                for k in range(out_channels):
+                    loss += mt_losses.dice_loss(prediction[:, k, :, :], train_mask[:, :, :, k])
+                loss = loss / out_channels
             else:
                 train_mask = train_mask.cuda()
-            prediction = model(train_image)
-            loss = mt_losses.dice_loss(prediction, train_mask)
+                prediction = model(train_image)
+                loss = mt_losses.dice_loss(prediction, train_mask)
             optimizer.zero_grad()
             loss.backward()
 
@@ -136,7 +142,8 @@ def train(opt):
                       mt_metrics.specificity_score, mt_metrics.intersection_over_union,
                       mt_metrics.accuracy_score]
 
-        val_loss = validation(model, validation_dataloader, writer, metric_fns, epoch, val_samples_dir)
+        val_loss = validation(model, validation_dataloader, writer, metric_fns, epoch, val_samples_dir, out_channels,
+                              experiment_name, one_hot=one_hot)
         tqdm.write("Validation Loss: {:.6f}".format(val_loss))
         early_stop = early_stopping(val_loss)
         torch.save(model, MODEL_PATH.format(model_name='{}'.format(experiment_name)))

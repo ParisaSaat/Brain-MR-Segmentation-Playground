@@ -53,7 +53,7 @@ class Unet(Module):
         ArXiv link: https://arxiv.org/abs/1505.04597
     """
 
-    def __init__(self, drop_rate=0.4, bn_momentum=0.1):
+    def __init__(self, drop_rate=0.4, bn_momentum=0.1, out_channels=1):
         super(Unet, self).__init__()
 
         # Downsampling path
@@ -74,7 +74,7 @@ class Unet(Module):
         self.up2 = UpConv(384, 128, drop_rate, bn_momentum)
         self.up3 = UpConv(192, 64, drop_rate, bn_momentum)
 
-        self.conv9 = nn.Conv2d(64, 1, kernel_size=3, padding=1)
+        self.conv9 = nn.Conv2d(64, out_channels, kernel_size=3, padding=1)
 
     def forward(self, x):
         x1 = self.conv1(x)

@@ -71,35 +71,51 @@ def get_current_consistency_weight(weight, epoch, rampup):
     return weight * sigmoid_rampup(epoch, rampup)
 
 
-def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, one_hot_mask=False):
+def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_channels, experiment_name, one_hot=False):
     val_loss = 0.0
 
     num_samples = 0
     num_steps = 0
 
-    result_dict = defaultdict(float)
+    result_dict = defaultdict(list)
     for i, batch in enumerate(loader):
         image_data, mask_data = batch['image'], batch['mask']
-        if one_hot_mask:
-            one_hot_mask = torch.nn.functional.one_hot(mask_data.long(), num_classes=4).transpose(1, 3).squeeze(-1)
+        if one_hot:
+            one_hot_mask = torch.nn.functional.one_hot(mask_data.long(), num_classes=out_channels).squeeze(-1)
+            mask_data_gpu = one_hot_mask.cuda().float()
+        else:
+            mask_data_gpu = mask_data.cuda()
         image_data_gpu = image_data.cuda()
-        mask_data_gpu = mask_data.cuda()
 
+        loss = 0
         with torch.no_grad():
             model_out = model(image_data_gpu)
-            dice_loss = mt_losses.dice_loss(model_out, mask_data_gpu)
+            if one_hot:
+                for k in range(out_channels):
+                    loss += mt_losses.dice_loss(model_out[:, k, :, :], mask_data_gpu[:, :, :, k])
+                dice_loss = loss/out_channels
+            else:
+                dice_loss = mt_losses.dice_loss(model_out, mask_data_gpu)
             val_loss += dice_loss.item()
 
         masks = mask_data_gpu.cpu().numpy().astype(np.uint8)
         imgs = image_data_gpu.cpu().numpy().astype(np.uint8)
         predictions = model_out.cpu().numpy()
-        predictions = predictions.squeeze(axis=1)
 
         for metric_fn in metric_fns:
             for prediction, mask, img in zip(predictions, masks, imgs):
-                res = metric_fn(prediction, mask)
+                if one_hot:
+                    sum = 0
+                    for k in range(out_channels):
+                        sum += metric_fn(prediction[k, :, :], mask[:, :, k])
+                    res = sum / out_channels
+                else:
+                    prediction = prediction.squeeze(axis=0)
+                    res = metric_fn(prediction, mask)
                 dict_key = 'val_{}'.format(metric_fn.__name__)
-                result_dict[dict_key] += res
+                if not res or np.isnan(res):
+                    continue
+                result_dict[dict_key].append(res)
                 chance = random.uniform(0, 1)
                 if chance < PLOTTING_RATE:
                     plt.imshow(prediction > 0.5, cmap='gray')
@@ -112,9 +128,16 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, one_ho
 
     val_loss_avg = val_loss / num_steps
 
+    metrics_dict = defaultdict()
     for key, val in result_dict.items():
-        result_dict[key] = val / num_samples
-
+        metric_file = '{}_{}'.format(key, experiment_name)
+        values = np.asarray(val, dtype=np.float32)
+        np.save(metric_file, values)
+        mean = np.mean(values)
+        std = np.std(values)
+        metrics_dict['{}_mean'.format(key)] = mean
+        metrics_dict['{}_std'.format(key)] = std
+    np.save('metrics_{}.npy'.format(experiment_name), metrics_dict)
     writer.add_scalars('losses', {'loss': val_loss_avg}, epoch)
-    writer.add_scalars('metrics', result_dict, epoch)
+    writer.add_scalars('metrics', metrics_dict, epoch)
     return val_loss_avg

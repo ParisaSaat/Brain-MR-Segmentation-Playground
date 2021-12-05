@@ -36,20 +36,22 @@ def main(opt):
             ToTensorV2(),
         ]
     )
+    one_hot = opt.problem == 'wgc'
     writer = SummaryWriter(log_dir="log_test_{}".format(opt.experiment_name))
     img_pth = 'images_wgc' if opt.problem == 'wgc' else 'images'
     msk_pth = 'masks_wgc' if opt.problem == 'wgc' else 'masks'
     test_dataloader = get_dataloader(os.path.join(data_dir, img_pth), os.path.join(data_dir, msk_pth), 16,
                                      test_transform)
-    metric_fns = [mt_metrics.dice_score, mt_metrics.jaccard_score, mt_metrics.hausdorff_score,
+    metric_fns = [mt_metrics.dice_score, mt_metrics.hausdorff_score,
                   mt_metrics.precision_score, mt_metrics.recall_score,
-                  mt_metrics.specificity_score, mt_metrics.intersection_over_union,
+                  mt_metrics.specificity_score,
                   mt_metrics.accuracy_score]
 
     model = torch.load(MODEL_PATH.format(model_name=opt.model_name))
     test_samples_dir = 'test_samples_{}'.format(opt.experiment_name)
     makedirs(test_samples_dir)
-    test_loss = validation(model, test_dataloader, writer, metric_fns, 0, test_samples_dir)
+    test_loss = validation(model, test_dataloader, writer, metric_fns, 0, test_samples_dir, out_channels=1, experiment_name=opt.experiment_name,
+                           one_hot=one_hot)
     tqdm.write("Validation Loss: {:.6f}".format(test_loss))
 
     end_time = time.time()
