@@ -47,6 +47,8 @@ def create_parser():
     parser.add_argument('-test_ratio', type=int, default=0.2, help='')
     parser.add_argument('-normalize', type=bool, default=False, help='Do min max normalization on dataset')
     parser.add_argument('-plane', type=int, default=Plane.SAGITTAL.value, help='2D plane')
+    parser.add_argument('-problem', type=str, default='skull-stripping', help='segmentation problem')
+
 
     opt = parser.parse_args()
     return opt
@@ -54,10 +56,12 @@ def create_parser():
 
 def preprocess(opt):
     data_dir = opt.data_dir
-    slices_train_images_path = os.path.join(data_dir, 'slices/train/images_wgc')
-    slices_train_masks_path = os.path.join(data_dir, 'slices/train/masks_wgc')
-    slices_test_images_path = os.path.join(data_dir, 'slices/test/images_wgc')
-    slices_test_masks_path = os.path.join(data_dir, 'slices/test/masks_wgc')
+    img_pth = 'images_wgc' if opt.problem == 'wgc' else 'images'
+    msk_pth = 'masks_wgc' if opt.problem == 'wgc' else 'masks'
+    slices_train_images_path = os.path.join(data_dir, 'slices/train', img_pth)
+    slices_train_masks_path = os.path.join(data_dir, 'slices/train', msk_pth)
+    slices_test_images_path = os.path.join(data_dir, 'slices/test', img_pth)
+    slices_test_masks_path = os.path.join(data_dir, 'slices/test/masks', msk_pth)
 
     train_files, test_files = split_data(data_dir, opt.test_ratio)
     train_set = CC359(os.path.join(data_dir, 'train/images_wgc'), os.path.join(data_dir, 'train/masks_wgc'), opt.plane,

@@ -2,8 +2,8 @@ from enum import Enum
 
 
 class Plane(Enum):
-    AXIAL = 0
-    SAGITTAL = 1
+    AXIAL = 1
+    SAGITTAL = 0
     CORONAL = 2
 
 
@@ -14,5 +14,5 @@ LAMBDA = 6 * 10**(-4)
 
 PLOTTING_RATE = 0.001
 
-SLICE_HEIGHT = 256
+SLICE_HEIGHT = 288
 SLICE_WIDTH = 288
