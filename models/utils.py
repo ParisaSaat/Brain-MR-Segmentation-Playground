@@ -1,12 +1,8 @@
-import random
 from collections import defaultdict
 
 import medicaltorch.losses as mt_losses
 import numpy as np
 import torch
-from matplotlib import pyplot as plt
-
-from config.param import PLOTTING_RATE
 
 
 class EarlyStopping:
@@ -93,7 +89,7 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_ch
             if one_hot:
                 for k in range(out_channels):
                     loss += mt_losses.dice_loss(model_out[:, k, :, :], mask_data_gpu[:, :, :, k])
-                dice_loss = loss/out_channels
+                dice_loss = loss / out_channels
             else:
                 dice_loss = mt_losses.dice_loss(model_out, mask_data_gpu)
             val_loss += dice_loss.item()
@@ -116,12 +112,16 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_ch
                 if not res or np.isnan(res):
                     continue
                 result_dict[dict_key].append(res)
-                chance = random.uniform(0, 1)
-                if chance < PLOTTING_RATE:
-                    plt.imshow(prediction > 0.5, cmap='gray')
-                    plt.savefig(val_samples_dir + '/{}_{}_pred.png'.format(epoch, chance))
-                    plt.imshow(mask > 0.5, cmap='gray')
-                    plt.savefig(val_samples_dir + '/{}_{}_mask.png'.format(epoch, chance))
+                # chance = random.uniform(0, 1)
+                # if chance < PLOTTING_RATE:
+                #     plt.imshow(np.rot90(img), cmap='Greys_r')
+                #     plt.imshow(np.rot90(prediction) > 0.5, cmap='jet', alpha=0.5)
+                #     plt.axis("off")
+                #     plt.savefig(val_samples_dir + '/{}_{}_pred.png'.format(epoch, chance))
+                #     plt.imshow(np.rot90(imgg), cmap='Greys_r')
+                #     plt.imshow(np.rot90(mask) > 0.5, cmap='jet', alpha=0.5)
+                #     plt.axis("off")
+                #     plt.savefig(val_samples_dir + '/{}_{}_mask.png'.format(epoch, chance))
 
         num_samples += len(predictions)
         num_steps += 1
@@ -141,3 +141,16 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_ch
     writer.add_scalars('losses', {'loss': val_loss_avg}, epoch)
     writer.add_scalars('metrics', metrics_dict, epoch)
     return val_loss_avg
+
+
+def dice_score(pred, target):
+    eps = 0.0001
+    iflat = pred.reshape(-1)
+    tflat = target.reshape(-1)
+
+    intersection = (iflat * tflat).sum()
+    union = iflat.sum() + tflat.sum()
+
+    dice = (2.0 * intersection + eps) / (union + eps)
+
+    return - dice
