@@ -171,6 +171,7 @@ class CC359(Dataset):
         self.gt_root_dir = gt_root_dir
         self.file_ids = file_ids
         self.normalizer = normalizer
+        self.mask_type = mask_type
 
         self.filename_pairs = []
 
@@ -194,7 +195,6 @@ class CC359(Dataset):
         self.slice_axis = slice_axis
         self.slice_filter_fn = slice_filter_fn
         self.canonical = canonical
-        self.mask_type = mask_type
 
         self._load_filenames()
 
