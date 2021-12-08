@@ -164,7 +164,7 @@ class CC359(Dataset):
     NUM_SUBJECTS = 359
 
     def __init__(self, img_root_dir, gt_root_dir=None, slice_axis=1, file_ids=None, cache=True, transform=None,
-                 slice_filter_fn=SliceFilter, canonical=False, labeled=True, normalizer=None):
+                 slice_filter_fn=SliceFilter, canonical=False, labeled=True, normalizer=None, mask_type='staple'):
 
         self.labeled = labeled
         self.img_root_dir = img_root_dir
@@ -194,6 +194,7 @@ class CC359(Dataset):
         self.slice_axis = slice_axis
         self.slice_filter_fn = slice_filter_fn
         self.canonical = canonical
+        self.mask_type = mask_type
 
         self._load_filenames()
 
@@ -262,12 +263,11 @@ class CC359(Dataset):
         }
         return data_dict
 
-    @staticmethod
-    def _build_input_filename(file_id, mask=False):
+    def _build_input_filename(self, file_id, mask=False):
         if not mask:
             return "{id}.nii.gz".format(id=file_id)
         else:
-            return "{id}_pveseg.nii.gz".format(id=file_id)
+            return "{id}_{mask_type}.nii.gz".format(id=file_id, mask_type=self.mask_type)
 
 
 class BrainMRI2D(Dataset):
@@ -295,10 +295,6 @@ class BrainMRI2D(Dataset):
         mask_affine = nifti_mask.affine
 
         if self.transform:
-            # nifti_image = nib.Nifti1Image(image, affine=image_affine)
-            # nifti_mask = nib.Nifti1Image(mask, affine=mask_affine)
-            # nib.save(nifti_image, 'aug_samples/{}_img_b.nii'.format(idx))
-            # nib.save(nifti_mask, 'aug_samples/{}_mask_b.nii'.format(idx))
             if self.mean_teacher:
                 transformed = self.transform({'input': Image.fromarray(image), 'gt': Image.fromarray(mask)})
                 image = transformed.get('input')
@@ -307,10 +303,6 @@ class BrainMRI2D(Dataset):
                 transformed = self.transform(image=image, mask=mask)
                 image = transformed.get('image')
                 mask = transformed.get('mask')
-            # nifti_image = nib.Nifti1Image(image.numpy()[0, :, :], affine=image_affine)
-            # nifti_mask = nib.Nifti1Image(mask.numpy(), affine=mask_affine)
-            # nib.save(nifti_image, 'aug_samples/{}_img_a.nii'.format(idx))
-            # nib.save(nifti_mask, 'aug_samples/{}_mask_a.nii'.format(idx))
         sample = {'image': image, 'mask': mask, 'mask_affine': mask_affine, 'image_affine': image_affine, 'idx': idx}
         return sample
 

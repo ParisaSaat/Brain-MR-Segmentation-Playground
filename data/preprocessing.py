@@ -7,12 +7,11 @@ from sklearn.model_selection import train_test_split
 from config.io import *
 from config.param import Plane
 from data.dataset import CC359
-from data.utils import min_max_normalization
 
 
-def split_data(data_dir, ratio):
-    imgs_dir = os.path.join(data_dir, 'images')
-    masks_dir = os.path.join(data_dir, 'masks_wgc')
+def split_data(data_dir, ratio, image_path, mask_path, mask_type):
+    imgs_dir = os.path.join(data_dir, image_path)
+    masks_dir = os.path.join(data_dir, mask_path)
     train_dir = os.path.join(data_dir, 'train')
     test_dir = os.path.join(data_dir, 'test')
 
@@ -26,10 +25,11 @@ def split_data(data_dir, ratio):
 
     train_files, test_files = train_test_split(file_ids, test_size=ratio, random_state=42, shuffle=True, stratify=mf)
 
-    copy_files(train_files, imgs_dir, os.path.join(train_dir, 'images_wgc'), IMAGE_FILE_TEMPLATE)
-    copy_files(train_files, masks_dir, os.path.join(train_dir, 'masks_wgc'), MASK_FILE_TEMPLATE)
-    copy_files(test_files, imgs_dir, os.path.join(test_dir, 'images_wgc'), IMAGE_FILE_TEMPLATE)
-    copy_files(test_files, masks_dir, os.path.join(test_dir, 'masks_wgc'), MASK_FILE_TEMPLATE)
+    copy_files(train_files, imgs_dir, os.path.join(train_dir, image_path), IMAGE_FILE_TEMPLATE)
+    copy_files(train_files, masks_dir, os.path.join(train_dir, mask_path),
+               MASK_FILE_TEMPLATE.format(mask_type=mask_type))
+    copy_files(test_files, imgs_dir, os.path.join(test_dir, image_path), IMAGE_FILE_TEMPLATE)
+    copy_files(test_files, masks_dir, os.path.join(test_dir, mask_path), MASK_FILE_TEMPLATE.format(mask_type=mask_type))
 
     return train_files, test_files
 
@@ -49,25 +49,25 @@ def create_parser():
     parser.add_argument('-plane', type=int, default=Plane.SAGITTAL.value, help='2D plane')
     parser.add_argument('-problem', type=str, default='skull-stripping', help='segmentation problem')
 
-
     opt = parser.parse_args()
     return opt
 
 
 def preprocess(opt):
     data_dir = opt.data_dir
+    mask_type = 'pveseg' if opt.problem == 'wgc' else 'staple'
     img_pth = 'images_wgc' if opt.problem == 'wgc' else 'images'
     msk_pth = 'masks_wgc' if opt.problem == 'wgc' else 'masks'
     slices_train_images_path = os.path.join(data_dir, 'slices/train', img_pth)
     slices_train_masks_path = os.path.join(data_dir, 'slices/train', msk_pth)
     slices_test_images_path = os.path.join(data_dir, 'slices/test', img_pth)
-    slices_test_masks_path = os.path.join(data_dir, 'slices/test/masks', msk_pth)
+    slices_test_masks_path = os.path.join(data_dir, 'slices/test', msk_pth)
 
-    train_files, test_files = split_data(data_dir, opt.test_ratio)
-    train_set = CC359(os.path.join(data_dir, 'train/images_wgc'), os.path.join(data_dir, 'train/masks_wgc'), opt.plane,
-                      train_files, normalizer=min_max_normalization)
-    test_set = CC359(os.path.join(data_dir, 'test/images_wgc'), os.path.join(data_dir, 'test/masks_wgc'), opt.plane,
-                     test_files, normalizer=min_max_normalization)
+    train_files, test_files = split_data(data_dir, opt.test_ratio, img_pth, msk_pth, mask_type)
+    train_set = CC359(os.path.join(data_dir, 'train', img_pth), os.path.join(data_dir, 'train', msk_pth), opt.plane,
+                      train_files, normalizer=None, mask_type=mask_type)
+    test_set = CC359(os.path.join(data_dir, 'test', img_pth), os.path.join(data_dir, 'test', msk_pth), opt.plane,
+                     test_files, normalizer=None, mask_type=mask_type)
     train_set.save_slices(slices_train_images_path, slices_train_masks_path)
     test_set.save_slices(slices_test_images_path, slices_test_masks_path)
 

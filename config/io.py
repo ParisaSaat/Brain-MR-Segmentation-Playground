@@ -82,5 +82,5 @@ MODEL_PATH = {
 MODEL_PATH = MODEL_PATH[PROCESS_ENV]
 
 IMAGE_FILE_TEMPLATE = '{file_id}.nii.gz'
-MASK_FILE_TEMPLATE = '{file_id}_pveseg.nii.gz'
+MASK_FILE_TEMPLATE = '{file_id}_{mask_type}.nii.gz'
 NORMALIZED_IMAGES_TEMPLATE = '{file_id}.nii'
