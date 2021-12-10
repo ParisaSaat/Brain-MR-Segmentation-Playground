@@ -1,6 +1,5 @@
 from collections import defaultdict
 
-import medicaltorch.losses as mt_losses
 import numpy as np
 import torch
 
@@ -67,6 +66,19 @@ def get_current_consistency_weight(weight, epoch, rampup):
     return weight * sigmoid_rampup(epoch, rampup)
 
 
+def dice_score(pred, target):
+    eps = 0.0001
+    iflat = pred.reshape(-1)
+    tflat = target.reshape(-1)
+
+    intersection = (iflat * tflat).sum()
+    union = iflat.sum() + tflat.sum()
+
+    dice = (2.0 * intersection + eps) / (union + eps)
+
+    return - dice
+
+
 def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_channels, experiment_name, one_hot=False):
     val_loss = 0.0
 
@@ -88,10 +100,10 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_ch
             model_out = model(image_data_gpu)
             if one_hot:
                 for k in range(out_channels):
-                    loss += mt_losses.dice_loss(model_out[:, k, :, :], mask_data_gpu[:, :, :, k])
+                    loss += dice_score(model_out[:, k, :, :], mask_data_gpu[:, :, :, k])
                 dice_loss = loss / out_channels
             else:
-                dice_loss = mt_losses.dice_loss(model_out, mask_data_gpu)
+                dice_loss = dice_score(model_out, mask_data_gpu)
             val_loss += dice_loss.item()
 
         masks = mask_data_gpu.cpu().numpy().astype(np.uint8)
@@ -141,16 +153,3 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_ch
     writer.add_scalars('losses', {'loss': val_loss_avg}, epoch)
     writer.add_scalars('metrics', metrics_dict, epoch)
     return val_loss_avg
-
-
-def dice_score(pred, target):
-    eps = 0.0001
-    iflat = pred.reshape(-1)
-    tflat = target.reshape(-1)
-
-    intersection = (iflat * tflat).sum()
-    union = iflat.sum() + tflat.sum()
-
-    dice = (2.0 * intersection + eps) / (union + eps)
-
-    return - dice

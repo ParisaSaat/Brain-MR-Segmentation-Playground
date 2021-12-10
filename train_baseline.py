@@ -4,7 +4,6 @@ import time
 from os import makedirs
 
 import albumentations as A
-import medicaltorch.losses as mt_losses
 import medicaltorch.metrics as mt_metrics
 import torch
 from albumentations.pytorch import ToTensorV2
@@ -137,7 +136,7 @@ def train(opt):
 
         model.eval()
 
-        metric_fns = [mt_metrics.dice_score, mt_metrics.jaccard_score, mt_metrics.hausdorff_score,
+        metric_fns = [dice_score, mt_metrics.jaccard_score, mt_metrics.hausdorff_score,
                       mt_metrics.precision_score, mt_metrics.recall_score,
                       mt_metrics.specificity_score, mt_metrics.intersection_over_union,
                       mt_metrics.accuracy_score]
