@@ -12,7 +12,7 @@ from tqdm import *
 
 from config.io import *
 from data.utils import get_dataloader
-from models.utils import validation
+from models.utils import validation, dice_score
 
 
 def create_parser():
@@ -42,7 +42,7 @@ def main(opt):
     msk_pth = 'masks_wgc' if opt.problem == 'wgc' else 'masks'
     test_dataloader = get_dataloader(os.path.join(data_dir, img_pth), os.path.join(data_dir, msk_pth), 16,
                                      test_transform)
-    metric_fns = [mt_metrics.dice_score, mt_metrics.hausdorff_score,
+    metric_fns = [dice_score, mt_metrics.hausdorff_score,
                   mt_metrics.precision_score, mt_metrics.recall_score,
                   mt_metrics.specificity_score,
                   mt_metrics.accuracy_score]
