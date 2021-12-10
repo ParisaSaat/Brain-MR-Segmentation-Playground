@@ -2,7 +2,6 @@ import argparse
 import time
 
 import albumentations as A
-import medicaltorch.losses as mt_losses
 import torch
 from albumentations.pytorch import ToTensorV2
 from tensorboardX import SummaryWriter
@@ -10,6 +9,7 @@ from tqdm import *
 
 from config.io import *
 from config.param import *
+from models.utils import dice_score
 from train_baseline import get_dataloader
 from train_baseline import scheduler
 
@@ -25,6 +25,7 @@ def create_parser():
     parser.add_argument('-initial_lr', type=float, default=0.000125, help='learning rate of the optimizer')
     parser.add_argument('-patch_height', type=int, default=128, help='patch size')
     parser.add_argument('-patch_width', type=int, default=128, help='patch size')
+    parser.add_argument('-problem', type=str, default='skull-stripping', help='segmentation problem')
     opt = parser.parse_args()
     return opt
 
@@ -32,6 +33,9 @@ def create_parser():
 def tl(opt):
     num_epochs = opt.num_epochs
     mode = opt.mode
+    img_pth = 'images_wgc' if opt.problem == 'wgc' else 'images'
+    msk_pth = 'masks_wgc' if opt.problem == 'wgc' else 'masks'
+    out_channels = 4 if opt.problem == 'wgc' else 1
     if torch.cuda.is_available():
         torch.cuda.set_device("cuda:0")
     start_time = time.time()
@@ -45,7 +49,7 @@ def tl(opt):
         ]
     )
 
-    train_dataloader = get_dataloader(os.path.join(data_dir, 'images'), os.path.join(data_dir, 'masks'),
+    train_dataloader = get_dataloader(os.path.join(data_dir, img_pth), os.path.join(data_dir, msk_pth),
                                       opt.batch_size, train_transform)
     tl_size = len(train_dataloader) / 4
 
@@ -80,9 +84,18 @@ def tl(opt):
         for i, train_batch in enumerate(train_dataloader):
             train_image, train_mask = train_batch['image'], train_batch['mask']
             train_image = train_image.cuda()
-            train_mask = train_mask.cuda()
-            prediction = model(train_image)
-            loss = mt_losses.dice_loss(prediction, train_mask)
+            if opt.problem == 'wgc':
+                one_hot_mask = torch.nn.functional.one_hot(train_mask.long(), num_classes=4).squeeze(-1)
+                train_mask = one_hot_mask.cuda().float()
+                prediction = model(train_image)
+                loss = 0
+                for k in range(out_channels):
+                    loss += dice_score(prediction[:, k, :, :], train_mask[:, :, :, k])
+                loss = loss / out_channels
+            else:
+                train_mask = train_mask.cuda()
+                prediction = model(train_image)
+                loss = dice_score(prediction, train_mask)
             optimizer.zero_grad()
             loss.backward()
 
