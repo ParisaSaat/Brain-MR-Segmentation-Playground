@@ -231,6 +231,10 @@ def cmd_train(ctx):
     consistency_rampup = ctx["consistency_rampup"]
     weight_decay = ctx["weight_decay"]
     supervised_only = ctx["supervised_only"]
+    problem = ctx["problem"]
+    one_hot = problem == 'wgc'
+    img_pth = 'images_wgc' if problem == 'wgc' else 'images'
+    msk_pth = 'masks_wgc' if problem == 'wgc' else 'masks'
 
     # Decay for learning rate
     if "constant" in ctx["decay_lr"]:
@@ -291,8 +295,8 @@ def cmd_train(ctx):
     # Xv, Yv = Target input and target label, validation
 
     # Sample Xs and Ys from this
-    source_train_loader = get_dataloader(os.path.join(ctx['train_dir'], 'images'),
-                                         os.path.join(ctx['train_dir'], 'masks'), ctx["source_batch_size"],
+    source_train_loader = get_dataloader(os.path.join(ctx['train_dir'], img_pth),
+                                         os.path.join(ctx['train_dir'], msk_pth), ctx["source_batch_size"],
                                          source_transform, shuffle=True, drop_last=True, num_workers=num_workers,
                                          collate_fn=mt_datasets.mt_collate, pin_memory=True, mean_teacher=True)
 
@@ -304,15 +308,15 @@ def cmd_train(ctx):
                                                          site_ids=ctx["adapt_centers"], # 3 = train, 4 = test
                                                          subj_ids=range(11, 21))
     '''
-    target_adapt_train_loader = get_dataloader(os.path.join(ctx['target_train_dir'], 'images'),
-                                               os.path.join(ctx['target_train_dir'], 'masks'),
+    target_adapt_train_loader = get_dataloader(os.path.join(ctx['target_train_dir'], img_pth),
+                                               os.path.join(ctx['target_train_dir'], msk_pth),
                                                ctx["target_batch_size"], target_adapt_transform,
                                                shuffle=True, drop_last=True, num_workers=num_workers,
                                                collate_fn=mt_datasets.mt_collate, pin_memory=True, mean_teacher=True)
 
     # Sample Xv, Yv from this
-    validation_dataloader = get_dataloader(os.path.join(ctx['target_val_dir'], 'images'),
-                                           os.path.join(ctx['target_val_dir'], 'masks'), ctx["target_batch_size"],
+    validation_dataloader = get_dataloader(os.path.join(ctx['target_val_dir'], img_pth),
+                                           os.path.join(ctx['target_val_dir'], msk_pth), ctx["target_batch_size"],
                                            target_val_adapt_transform, shuffle=False, drop_last=False,
                                            num_workers=num_workers, collate_fn=mt_datasets.mt_collate, pin_memory=True,
                                            mean_teacher=True)
