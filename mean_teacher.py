@@ -116,8 +116,8 @@ def validation(model, model_ema, loader, writer,
     num_samples = 0
     num_steps = 0
 
-    result_dict = defaultdict(float)
-    result_ema_dict = defaultdict(float)
+    result_dict = defaultdict(list)
+    result_ema_dict = defaultdict(list)
     out_channels = 4 if one_hot else 1
 
     for i, batch in enumerate(loader):
