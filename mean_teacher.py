@@ -571,6 +571,7 @@ def cmd_train(ctx):
                    validation_dataloader, writer, metric_fns,
                    epoch, ctx, 'val_%s' % ctx["val_center"], one_hot=one_hot)
         torch.save(model, MODEL_PATH.format(model_name='{}'.format(experiment_name)))
+        torch.save(model_ema, MODEL_PATH.format(model_name='{}_ema'.format(experiment_name)))
         end_time = time.time()
         total_time = end_time - start_time
         tqdm.write("Epoch {} took {:.2f} seconds.".format(epoch, total_time))
