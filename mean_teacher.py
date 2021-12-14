@@ -16,8 +16,10 @@ from tensorboardX import SummaryWriter
 from torch.nn import functional as F
 from tqdm import *
 
+from config.io import MODEL_PATH
 from data.utils import get_dataloader
 from models.baseline import Unet
+from models.utils import dice_score
 
 
 def decay_poly_lr(current_epoch, num_epochs, initial_lr):
@@ -96,7 +98,8 @@ def threshold_predictions(predictions, thr=0.9):
 def create_model(ctx, ema=False):
     drop_rate = ctx["drop_rate"]
     bn_momentum = ctx["bn_momentum"]
-    model = Unet(drop_rate=drop_rate, bn_momentum=bn_momentum)
+    out_channels = ctx["out_channels"]
+    model = Unet(drop_rate=drop_rate, bn_momentum=bn_momentum, out_channels=out_channels)
 
     if ema:
         for param in model.parameters():
@@ -106,7 +109,7 @@ def create_model(ctx, ema=False):
 
 
 def validation(model, model_ema, loader, writer,
-               metric_fns, epoch, ctx, prefix):
+               metric_fns, epoch, ctx, prefix, one_hot):
     val_loss = 0.0
     ema_val_loss = 0.0
 
@@ -115,56 +118,112 @@ def validation(model, model_ema, loader, writer,
 
     result_dict = defaultdict(float)
     result_ema_dict = defaultdict(float)
+    out_channels = 4 if one_hot else 1
 
     for i, batch in enumerate(loader):
         input_data, gt_data = batch['image'], batch['mask']
-
+        if one_hot:
+            one_hot_mask = torch.nn.functional.one_hot(gt_data.long(), num_classes=out_channels).squeeze(-1)
+            gt_data_gpu = one_hot_mask.cuda().float()
+        else:
+            gt_data_gpu = gt_data.cuda()
         input_data_gpu = input_data.cuda()
-        gt_data_gpu = gt_data.cuda()
 
+        loss = 0
+        loss_ema = 0
         with torch.no_grad():
             model_out = model(input_data_gpu)
-            val_class_loss = mt_losses.dice_loss(model_out, gt_data_gpu)
+            if one_hot:
+                for k in range(out_channels):
+                    loss += dice_score(model_out[:, k, :, :], gt_data_gpu[:, :, :, k])
+                val_class_loss = loss / out_channels
+            else:
+                val_class_loss = dice_score(model_out, gt_data_gpu)
             val_loss += val_class_loss.item()
 
             if not ctx['supervised_only']:
                 model_ema_out = model_ema(input_data_gpu)
-                ema_val_class_loss = mt_losses.dice_loss(model_ema_out, gt_data_gpu)
+
+                if one_hot:
+                    for k in range(out_channels):
+                        loss_ema += dice_score(model_ema_out[:, k, :, :], gt_data_gpu[:, :, :, k])
+                    ema_val_class_loss = loss / out_channels
+                else:
+                    ema_val_class_loss = dice_score(model_out, gt_data_gpu)
                 ema_val_loss += ema_val_class_loss.item()
 
         gt_masks = gt_data_gpu.cpu().numpy().astype(np.uint8)
-        gt_masks = gt_masks.squeeze(axis=1)
+        # gt_masks = gt_masks.squeeze(axis=1)
 
         preds = model_out.cpu().numpy()
         preds = threshold_predictions(preds)
         preds = preds.astype(np.uint8)
-        preds = preds.squeeze(axis=1)
+        # preds = preds.squeeze(axis=1)
 
         for metric_fn in metric_fns:
             for prediction, ground_truth in zip(preds, gt_masks):
-                res = metric_fn(prediction, ground_truth)
+                # res = metric_fn(prediction, ground_truth)
+                # dict_key = 'val_{}'.format(metric_fn.__name__)
+                # result_dict[dict_key] += res
+
+                if one_hot:
+                    sum = 0
+                    for k in range(out_channels):
+                        sum += metric_fn(prediction[k, :, :], ground_truth[:, :, k])
+                    res = sum / out_channels
+                else:
+                    prediction = prediction.squeeze(axis=0)
+                    res = metric_fn(prediction, ground_truth)
                 dict_key = 'val_{}'.format(metric_fn.__name__)
-                result_dict[dict_key] += res
+                if not res or np.isnan(res):
+                    continue
+                result_dict[dict_key].append(res)
 
         if not ctx["supervised_only"]:
             preds_ema = model_ema_out.cpu().numpy()
             preds_ema = threshold_predictions(preds_ema)
             preds_ema = preds_ema.astype(np.uint8)
-            preds_ema = preds_ema.squeeze(axis=1)
+            # preds_ema = preds_ema.squeeze(axis=1)
 
             for metric_fn in metric_fns:
                 for prediction, ground_truth in zip(preds_ema, gt_masks):
-                    res = metric_fn(prediction, ground_truth)
+                    # res = metric_fn(prediction, ground_truth)
+                    # dict_key = 'val_ema_{}'.format(metric_fn.__name__)
+                    # result_ema_dict[dict_key] += res
+                    if one_hot:
+                        sum = 0
+                        for k in range(out_channels):
+                            sum += metric_fn(prediction[k, :, :], ground_truth[:, :, k])
+                        res = sum / out_channels
+                    else:
+                        prediction = prediction.squeeze(axis=0)
+                        res = metric_fn(prediction, ground_truth)
                     dict_key = 'val_ema_{}'.format(metric_fn.__name__)
-                    result_ema_dict[dict_key] += res
+                    if not res or np.isnan(res):
+                        continue
+                    result_ema_dict[dict_key].append(res)
 
         num_samples += len(preds)
         num_steps += 1
 
     val_loss_avg = val_loss / num_steps
 
+    # for key, val in result_dict.items():
+    #     result_dict[key] = val / num_samples
+
+    metrics_dict = defaultdict()
     for key, val in result_dict.items():
-        result_dict[key] = val / num_samples
+        metric_file = '{}_{}'.format(key, ctx["experiment_name"])
+        values = np.asarray(val, dtype=np.float32)
+        np.save(metric_file, values)
+        mean = np.mean(values)
+        std = np.std(values)
+        metrics_dict['{}_mean'.format(key)] = mean
+        metrics_dict['{}_std'.format(key)] = std
+    np.save('metrics_{}.npy'.format(ctx["experiment_name"]), metrics_dict)
+    writer.add_scalars('losses', {'loss': val_loss_avg}, epoch)
+    writer.add_scalars('metrics', metrics_dict, epoch)
+    # return val_loss_avg
 
     if not ctx["supervised_only"]:
         for key, val in result_ema_dict.items():
@@ -183,7 +242,7 @@ def validation(model, model_ema, loader, writer,
         },
                            epoch)
 
-    writer.add_scalars(prefix + '_metrics', result_dict, epoch)
+    # writer.add_scalars(prefix + '_metrics', result_dict, epoch)
 
 
 def linked_batch_augmentation(input_batch, preds_unsup):
@@ -235,7 +294,7 @@ def cmd_train(ctx):
     one_hot = problem == 'wgc'
     img_pth = 'images_wgc' if problem == 'wgc' else 'images'
     msk_pth = 'masks_wgc' if problem == 'wgc' else 'masks'
-
+    ctx["out_channels"] = 4 if problem == 'wgc' else 1
     # Decay for learning rate
     if "constant" in ctx["decay_lr"]:
         decay_lr_fn = decay_constant_lr
@@ -381,7 +440,16 @@ def cmd_train(ctx):
             train_input = train_input.cuda()
             train_gt = train_gt.cuda()
             preds_supervised = model(train_input)
-            class_loss = mt_losses.dice_loss(preds_supervised, train_gt)
+            # class_loss = mt_losses.dice_loss(preds_supervised, train_gt)
+            if problem == 'wgc':
+                one_hot_mask = torch.nn.functional.one_hot(train_gt.long(), num_classes=4).squeeze(1)
+                train_mask = one_hot_mask.cuda().float()
+                loss = 0
+                for k in range(4):
+                    loss += dice_score(preds_supervised[:, k, :, :], train_mask[:, :, :, k])
+                class_loss = loss / 4
+            else:
+                class_loss = dice_score(preds_supervised, train_gt)
 
             if not supervised_only:
 
@@ -511,8 +579,8 @@ def cmd_train(ctx):
 
         validation(model, model_ema,
                    validation_dataloader, writer, metric_fns,
-                   epoch, ctx, 'val_%s' % ctx["val_center"])
-
+                   epoch, ctx, 'val_%s' % ctx["val_center"], one_hot=one_hot)
+        torch.save(model, MODEL_PATH.format(model_name='{}'.format(experiment_name)))
         end_time = time.time()
         total_time = end_time - start_time
         tqdm.write("Epoch {} took {:.2f} seconds.".format(epoch, total_time))
