@@ -162,10 +162,6 @@ def validation(model, model_ema, loader, writer,
 
         for metric_fn in metric_fns:
             for prediction, ground_truth in zip(preds, gt_masks):
-                # res = metric_fn(prediction, ground_truth)
-                # dict_key = 'val_{}'.format(metric_fn.__name__)
-                # result_dict[dict_key] += res
-
                 if one_hot:
                     sum = 0
                     for k in range(out_channels):
@@ -173,6 +169,7 @@ def validation(model, model_ema, loader, writer,
                     res = sum / out_channels
                 else:
                     prediction = prediction.squeeze(axis=0)
+                    ground_truth = ground_truth.squeeze(axis=0)
                     res = metric_fn(prediction, ground_truth)
                 dict_key = 'val_{}'.format(metric_fn.__name__)
                 if not res or np.isnan(res):
@@ -187,9 +184,6 @@ def validation(model, model_ema, loader, writer,
 
             for metric_fn in metric_fns:
                 for prediction, ground_truth in zip(preds_ema, gt_masks):
-                    # res = metric_fn(prediction, ground_truth)
-                    # dict_key = 'val_ema_{}'.format(metric_fn.__name__)
-                    # result_ema_dict[dict_key] += res
                     if one_hot:
                         sum = 0
                         for k in range(out_channels):
@@ -197,6 +191,7 @@ def validation(model, model_ema, loader, writer,
                         res = sum / out_channels
                     else:
                         prediction = prediction.squeeze(axis=0)
+                        ground_truth = ground_truth.squeeze(axis=0)
                         res = metric_fn(prediction, ground_truth)
                     dict_key = 'val_ema_{}'.format(metric_fn.__name__)
                     if not res or np.isnan(res):
@@ -208,8 +203,6 @@ def validation(model, model_ema, loader, writer,
 
     val_loss_avg = val_loss / num_steps
 
-    # for key, val in result_dict.items():
-    #     result_dict[key] = val / num_samples
 
     metrics_dict = defaultdict()
     for key, val in result_dict.items():
@@ -223,24 +216,21 @@ def validation(model, model_ema, loader, writer,
     np.save('metrics_{}.npy'.format(ctx["experiment_name"]), metrics_dict)
     writer.add_scalars('losses', {'loss': val_loss_avg}, epoch)
     writer.add_scalars('metrics', metrics_dict, epoch)
-    # return val_loss_avg
 
+    metrics_dict_ema = defaultdict()
     if not ctx["supervised_only"]:
         for key, val in result_ema_dict.items():
-            result_ema_dict[key] = val / num_samples
-
-        ema_val_loss_avg = ema_val_loss / num_steps
-        writer.add_scalars(prefix + '_ema_metrics', result_ema_dict, epoch)
-        writer.add_scalars(prefix + '_losses', {
-            prefix + '_loss': val_loss_avg,
-            prefix + '_ema_loss': ema_val_loss_avg
-        },
-                           epoch)
-    else:
-        writer.add_scalars(prefix + '_losses', {
-            prefix + '_loss': val_loss_avg,
-        },
-                           epoch)
+            ema_val_loss_avg = ema_val_loss / num_steps
+            metric_file = '{}_{}_ema'.format(key, ctx["experiment_name"])
+            values = np.asarray(val, dtype=np.float32)
+            np.save(metric_file, values)
+            mean = np.mean(values[np.where(values < np.percentile(values, 95))])
+            std = np.std(values[np.where(values < np.percentile(values, 95))])
+            metrics_dict_ema['{}_mean'.format(key)] = mean
+            metrics_dict_ema['{}_std'.format(key)] = std
+            np.save('metrics_ema_{}.npy'.format(ctx["experiment_name"]), metrics_dict)
+            writer.add_scalars('losses', {'ema_loss': ema_val_loss_avg}, epoch)
+            writer.add_scalars('ema_metrics', metrics_dict_ema, epoch)
 
     # writer.add_scalars(prefix + '_metrics', result_dict, epoch)
 
