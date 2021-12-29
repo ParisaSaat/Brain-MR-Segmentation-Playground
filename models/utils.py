@@ -70,7 +70,6 @@ def dice_score(pred, target):
     eps = 0.0001
     iflat = pred.reshape(-1)
     tflat = target.reshape(-1)
-
     intersection = (iflat * tflat).sum()
     union = iflat.sum() + tflat.sum()
 
