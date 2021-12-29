@@ -1,3 +1,3 @@
 # Brain MRI Segmentation Playground
 
-![](./images/domain_adaptation_problem.png)
+![](images/domain_adaptation_problem.png)
