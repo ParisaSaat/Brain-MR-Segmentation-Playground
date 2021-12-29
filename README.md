@@ -21,7 +21,17 @@ The CC-359 dataset is available at this [website](https://www.ccdataset.com/).
 
 ### Preprocessing
 If  you wish to use the same datasets as ours, you can use our preprocessing scripts. 
+
+To split the dataset to six domains run the following scrips:
+
 ```sh
 ./scripts/split-six-domains-ss.sh -r /path/to/data/cc359 -i /path/to/data/cc359/original -m /path/to/data/cc359/staple
 ./scripts/split-six-domains-wgc.sh -r /path/to/data/cc359 -i /path/to/data/cc359/orig -m /path/to/data/cc359/wgc
 ```
+
+Do the train and test split and preprocessing with following command for each data domain you use:
+
+```sh
+python data/preprocessing.py -data_dir /path/to/data/cc359/domain_name
+```
+
