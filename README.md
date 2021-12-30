@@ -35,3 +35,16 @@ Do the train and test split and preprocessing with following command for each da
 python data/preprocessing.py -data_dir /path/to/data/cc359/domain_name
 ```
 
+### Training
+To train a model from a method run the following command:
+```sh
+python mothods/method_name.py experiments/experimental_setup.json
+```
+
+### Testing
+
+To test a model rub the following command:
+
+```sh
+python test.py -model_name model_name -experiment_name exp_name -data_dir /path/to/data/cc359/test
+```
