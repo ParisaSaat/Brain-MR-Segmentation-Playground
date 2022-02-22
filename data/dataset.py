@@ -5,6 +5,7 @@ import nibabel as nib
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
+
 from config.param import SLICE_HEIGHT, SLICE_WIDTH
 
 
@@ -271,13 +272,13 @@ class CC359(Dataset):
 
 
 class BrainMRI2D(Dataset):
-    def __init__(self, img_root_dir, gt_root_dir=None, file_ids=None, transform=None, labeled=True, mean_teacher=False):
+    def __init__(self, domain, img_root_dir, gt_root_dir=None, file_ids=None, transform=None, labeled=True):
+        self.domain = domain
         self.img_root_dir = img_root_dir
         self.gt_root_dir = gt_root_dir
         self.file_ids = file_ids
         self.transform = transform
         self.labeled = labeled
-        self.mean_teacher = mean_teacher
 
         self.pairs_path = []
         for file_id in self.file_ids:
@@ -295,15 +296,11 @@ class BrainMRI2D(Dataset):
         mask_affine = nifti_mask.affine
 
         if self.transform:
-            if self.mean_teacher:
-                transformed = self.transform({'input': Image.fromarray(image), 'gt': Image.fromarray(mask)})
-                image = transformed.get('input')
-                mask = transformed.get('gt')
-            else:
-                transformed = self.transform(image=image, mask=mask)
-                image = transformed.get('image')
-                mask = transformed.get('mask')
-        sample = {'image': image, 'mask': mask, 'mask_affine': mask_affine, 'image_affine': image_affine, 'idx': idx}
+            transformed = self.transform(image=image, mask=mask)
+            image = transformed.get('image')
+            mask = transformed.get('mask')
+        sample = {'image': image, 'mask': mask, 'mask_affine': mask_affine, 'image_affine': image_affine, 'idx': idx,
+                  'domain': self.domain}
         return sample
 
     def __len__(self):

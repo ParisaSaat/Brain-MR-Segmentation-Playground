@@ -2,7 +2,6 @@ import os
 
 PROCESS_ENV = os.environ.get('ENV', 'TEST')
 
-
 SOURCE_TRAIN_IMAGES_PATH = {
     'TEST': '/home/par/thesis/data/cc359/source/train/images',
     'PRODUCTION': '/home/parisaat/scratch/data/cc359/source/train/images',
@@ -84,3 +83,13 @@ MODEL_PATH = MODEL_PATH[PROCESS_ENV]
 IMAGE_FILE_TEMPLATE = '{file_id}.nii.gz'
 MASK_FILE_TEMPLATE = '{file_id}_{mask_type}.nii.gz'
 NORMALIZED_IMAGES_TEMPLATE = '{file_id}.nii'
+LOSS_PATH = 'losses'
+PRETRAIN_UNET = 'pretrain_unet'
+PRETRAIN_SEGMENTER = 'pretrain_segmenter'
+PRETRAIN_DOMAIN = 'pretrain_domain'
+CHK_PATH_UNET = 'unet_pth_checkpoint'
+CHK_PATH_SEGMENTER = 'segmenter_pth_checkpoint'
+CHK_PATH_DOMAIN = 'domain_pth_checkpoint'
+PATH_UNET = 'unet_pth'
+PATH_SEGMENTER = 'segmenter_pth'
+PATH_DOMAIN = 'domain_pth'

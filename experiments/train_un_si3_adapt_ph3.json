@@ -1,0 +1,22 @@
+{
+  "method": "unlearn",
+  "command": "train",
+  "experiment_name": "train_un_si3_adapt_ph3",
+  "source_train_dir": "/home/par/thesis/data/cc359/siemens/slices/train",
+  "source_val_dir": "/home/par/thesis/data/cc359/siemens/slices/test",
+  "target_train_dir": "/home/par/thesis/data/cc359/ge/slices/train",
+  "target_val_dir": "/home/par/thesis/data/cc359/ge/slices/test",
+  "batch_size": 10,
+  "channels_first": true,
+  "diff_model_flag": false,
+  "alpha": 50,
+  "patience": 25,
+  "epochs": 3,
+  "epoch_stage_1": 100,
+  "epoch_reached": 1,
+  "beta": 10,
+  "log_interval": 10,
+  "gpu": 0,
+  "problem": "ss",
+  "learning_rate": 1e-4
+}
