@@ -272,7 +272,7 @@ class CC359(Dataset):
 
 
 class BrainMRI2D(Dataset):
-    def __init__(self, domain, img_root_dir, gt_root_dir=None, file_ids=None, transform=None, labeled=True):
+    def __init__(self, img_root_dir, gt_root_dir=None, file_ids=None, transform=None, labeled=True, domain=0):
         self.domain = domain
         self.img_root_dir = img_root_dir
         self.gt_root_dir = gt_root_dir

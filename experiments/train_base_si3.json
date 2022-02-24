@@ -1,0 +1,17 @@
+{
+  "method": "baseline",
+  "command": "train",
+  "experiment_name": "train_un_si3",
+  "train_dir": "/home/par/thesis/data/cc359/siemens/slices/train",
+  "val_dir": "/home/par/thesis/data/cc359/siemens/slices/test",
+  "batch_size": 32,
+  "patch_height": 128,
+  "patch_width": 128,
+  "num_epochs": 10,
+  "problem": "skull-stripping",
+  "initial_lr": 5e-4,
+  "patience": 10,
+  "drop_rate": 0.5,
+  "plot_rate": 0.1,
+  "gpu": 0
+}

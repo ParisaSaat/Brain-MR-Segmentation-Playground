@@ -4,6 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from misc.plot_result import plot_segmentation
+
 
 class EarlyStopping:
     """
@@ -79,7 +81,7 @@ def dice_score(pred, target):
     return - dice
 
 
-def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_channels, experiment_name, one_hot=False):
+def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_channels, experiment_name, plot_rate):
     val_loss = 0.0
 
     num_samples = 0
@@ -88,7 +90,7 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_ch
     result_dict = defaultdict(list)
     for i, batch in enumerate(loader):
         image_data, mask_data = batch['image'], batch['mask']
-        if one_hot:
+        if out_channels != 1:
             one_hot_mask = torch.nn.functional.one_hot(mask_data.long(), num_classes=out_channels).squeeze(-1)
             mask_data_gpu = one_hot_mask.cuda().float()
         else:
@@ -98,7 +100,7 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_ch
         loss = 0
         with torch.no_grad():
             model_out = model(image_data_gpu)
-            if one_hot:
+            if out_channels != 1:
                 for k in range(out_channels):
                     loss += dice_score(model_out[:, k, :, :], mask_data_gpu[:, :, :, k])
                 dice_loss = loss / out_channels
@@ -110,9 +112,10 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_ch
         imgs = image_data_gpu.cpu().numpy().astype(np.uint8)
         predictions = model_out.cpu().numpy()
 
+        plot = True
         for metric_fn in metric_fns:
             for prediction, mask, img in zip(predictions, masks, imgs):
-                if one_hot:
+                if out_channels != 1:
                     sum = 0
                     for k in range(out_channels):
                         sum += metric_fn(prediction[k, :, :], mask[:, :, k])
@@ -124,16 +127,12 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_ch
                 if not res or np.isnan(res):
                     continue
                 result_dict[dict_key].append(res)
-                # chance = random.uniform(0, 1)
-                # if chance < PLOTTING_RATE:
-                #     plt.imshow(np.rot90(img), cmap='Greys_r')
-                #     plt.imshow(np.rot90(prediction) > 0.5, cmap='jet', alpha=0.5)
-                #     plt.axis("off")
-                #     plt.savefig(val_samples_dir + '/{}_{}_pred.png'.format(epoch, chance))
-                #     plt.imshow(np.rot90(imgg), cmap='Greys_r')
-                #     plt.imshow(np.rot90(mask) > 0.5, cmap='jet', alpha=0.5)
-                #     plt.axis("off")
-                #     plt.savefig(val_samples_dir + '/{}_{}_mask.png'.format(epoch, chance))
+                if plot:
+                    chance = np.random.uniform(0, 1)
+                    if chance < plot_rate:
+                        plot_segmentation(img.squeeze(axis=0), prediction, mask, val_samples_dir,
+                                          '{}_{}'.format(epoch, chance))
+            plot = False
 
         num_samples += len(predictions)
         num_steps += 1
