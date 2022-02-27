@@ -15,7 +15,8 @@ from config.param import LAMBDA
 from data.utils import get_dataloader
 from models.baseline import Unet
 from models.utils import EarlyStopping, scheduler
-from models.utils import validation, dice_score
+from models.utils import validation
+from metrics.dice import dice_score
 
 
 def cmd_train(opt):
@@ -89,12 +90,13 @@ def cmd_train(opt):
                 prediction = model(train_image)
                 loss = 0
                 for k in range(out_channels):
-                    loss += dice_score(prediction[:, k, :, :], train_mask[:, :, :, k])
+                    dice_loss = -dice_score(prediction[:, k, :, :], train_mask[:, :, :, k])
+                    loss += dice_loss
                 loss = loss / out_channels
             else:
                 train_mask = train_mask.cuda()
                 prediction = model(train_image)
-                loss = dice_score(prediction, train_mask)
+                loss = -dice_score(prediction, train_mask)
             optimizer.zero_grad()
             loss.backward()
 

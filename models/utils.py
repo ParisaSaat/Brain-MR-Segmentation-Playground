@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from metrics.dice import dice_score
 from misc.plot_result import plot_segmentation
 
 
@@ -69,18 +70,6 @@ def get_current_consistency_weight(weight, epoch, rampup):
     return weight * sigmoid_rampup(epoch, rampup)
 
 
-def dice_score(pred, target):
-    eps = 0.0001
-    iflat = pred.reshape(-1)
-    tflat = target.reshape(-1)
-    intersection = (iflat * tflat).sum()
-    union = iflat.sum() + tflat.sum()
-
-    dice = (2.0 * intersection + eps) / (union + eps)
-
-    return - dice
-
-
 def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_channels, experiment_name, plot_rate):
     val_loss = 0.0
 
@@ -102,10 +91,11 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_ch
             model_out = model(image_data_gpu)
             if out_channels != 1:
                 for k in range(out_channels):
-                    loss += dice_score(model_out[:, k, :, :], mask_data_gpu[:, :, :, k])
+                    dice_loss = -dice_score(model_out[:, k, :, :], mask_data_gpu[:, :, :, k])
+                    loss += dice_loss
                 dice_loss = loss / out_channels
             else:
-                dice_loss = dice_score(model_out, mask_data_gpu)
+                dice_loss = -dice_score(model_out, mask_data_gpu)
             val_loss += dice_loss.item()
 
         masks = mask_data_gpu.cpu().numpy().astype(np.uint8)

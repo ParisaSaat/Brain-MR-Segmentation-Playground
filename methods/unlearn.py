@@ -14,10 +14,9 @@ from sklearn.metrics import accuracy_score
 from torch.autograd import Variable
 
 from config.io import *
-from config.param import SLICE_HEIGHT, SLICE_WIDTH
 from data.utils import get_dataloader
-from losses.confusion_loss import confusion_loss
-from losses.dice_loss import dice_loss
+from metrics.confusion_loss import confusion_loss
+from metrics.dice import dice_loss
 from models.unlearn import UNet, Segmenter, DomainPredictor
 from models.utils import EarlyStoppingUnlearning
 
@@ -220,7 +219,7 @@ def train_unlearn(args, models, train_loaders, optimizers, criterions, epoch):
 
     [encoder, regressor, domain_predictor] = models
     [optimizer, optimizer_conf, optimizer_dm] = optimizers
-    [b_train_dataloader, o_train_dataloader] = train_loaders
+    [source_train_dataloader, target_train_dataloader] = train_loaders
     [criteron, conf_criterion, domain_criterion] = criterions
     regressor_loss = 0
     domain_loss = 0
@@ -234,24 +233,27 @@ def train_unlearn(args, models, train_loaders, optimizers, criterions, epoch):
     pred_domains = []
 
     batches = 0
-    for batch_idx, ((b_data, b_target, b_domain), (o_data, o_target, o_domain)) in enumerate(
-            zip(b_train_dataloader, o_train_dataloader)):
-        if len(b_data) == args["batch_size"]:
 
-            n1 = np.random.randint(1, len(b_data) - 1)
-            n2 = len(b_data) - n1
+    for batch_idx, (source_load, target_load) in enumerate(zip(source_train_dataloader, target_train_dataloader)):
+        s_data, s_target, s_domain = source_load['image'], source_load['mask'], source_load['domain']
+        t_data, t_target, t_domain = target_load['image'], target_load['mask'], target_load['domain']
 
-            b_data = b_data[:n1]
-            b_target = b_target[:n1]
-            b_domain = b_domain[:n1]
+        if len(s_data) == args["batch_size"]:
 
-            o_data = o_data[:n2]
-            o_target = o_target[:n2]
-            o_domain = o_domain[:n2]
+            n1 = np.random.randint(1, len(s_data) - 1)
+            n2 = len(s_data) - n1
 
-            data = torch.cat((b_data, o_data), 0)
-            target = torch.cat((b_target, o_target), 0)
-            domain_target = torch.cat((b_domain, o_domain), 0)
+            s_data = s_data[:n1]
+            s_target = s_target[:n1]
+            s_domain = s_domain[:n1]
+
+            t_data = t_data[:n2]
+            t_target = t_target[:n2]
+            t_domain = t_domain[:n2]
+
+            data = torch.cat((s_data, t_data), 0)
+            target = torch.cat((s_target, t_target), 0)
+            domain_target = torch.cat((s_domain, t_domain), 0)
 
             target = target.type(torch.LongTensor)
 
@@ -265,6 +267,7 @@ def train_unlearn(args, models, train_loaders, optimizers, criterions, epoch):
 
                 # First update the encoder and regressor
                 optimizer.zero_grad()
+                data = torch.unsqueeze(data, 1)
                 features = encoder(data)
                 output_pred = regressor(features)
 
@@ -278,8 +281,8 @@ def train_unlearn(args, models, train_loaders, optimizers, criterions, epoch):
 
                 loss_total = loss_0 + loss_1
                 loss_total.backward(retain_graph=True)
-                optimizer.step()
-
+                # optimizer.step()
+                optimizer.zero_grad()
                 # Now update just the domain classifier
                 optimizer_dm.zero_grad()
                 output_dm = domain_predictor(features.detach())
@@ -306,8 +309,8 @@ def train_unlearn(args, models, train_loaders, optimizers, criterions, epoch):
 
                 if batch_idx % args["log_interval"] == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                        epoch, (batch_idx + 1) * len(data), len(b_train_dataloader.dataset),
-                               100. * (batch_idx + 1) / len(b_train_dataloader), loss_total.item()), flush=True)
+                        epoch, (batch_idx + 1) * len(data), len(source_train_dataloader.dataset),
+                               100. * (batch_idx + 1) / len(source_train_dataloader), loss_total.item()), flush=True)
                     print('\t \t Confusion loss = ', loss_conf.item())
                     print('\t \t Domain Loss = ', loss_dm.item(), flush=True)
                 del target
@@ -383,6 +386,7 @@ def val_unlearn(args, models, val_loaders, criterions):
 
                     features = encoder(data)
                     output_pred = regressor(features)
+                    print('output_pred:', output_pred.shape)
 
                     op_0 = output_pred[:n1]
                     target_0 = target[:n1]
@@ -417,27 +421,26 @@ def val_unlearn(args, models, val_loaders, criterions):
 
 def cmd_train(ctx):
     cuda = torch.cuda.is_available()
-    im_size = (SLICE_HEIGHT, SLICE_WIDTH)
     source_domain = torch.Tensor([0, 1])
     target_domain = torch.Tensor([1, 0])
     problem = ctx["problem"]
     img_pth = 'images_wgc' if problem == 'wgc' else 'images'
     msk_pth = 'masks_wgc' if problem == 'wgc' else 'masks'
     batch_size = ctx["batch_size"]
-    source_train_dataloader = get_dataloader(source_domain, os.path.join(ctx["source_train_dir"], img_pth),
+    source_train_dataloader = get_dataloader(os.path.join(ctx["source_train_dir"], img_pth),
                                              os.path.join(ctx["source_train_dir"], msk_pth), batch_size,
-                                             None)
-    source_val_dataloader = get_dataloader(source_domain, os.path.join(ctx["source_val_dir"], img_pth),
+                                             None, domain=source_domain)
+    source_val_dataloader = get_dataloader(os.path.join(ctx["source_val_dir"], img_pth),
                                            os.path.join(ctx["source_val_dir"], msk_pth),
-                                           batch_size, None)
+                                           batch_size, None, domain=source_domain)
 
-    target_train_dataloader = get_dataloader(target_domain, os.path.join(ctx["target_train_dir"], img_pth),
+    target_train_dataloader = get_dataloader(os.path.join(ctx["target_train_dir"], img_pth),
                                              os.path.join(ctx["target_train_dir"], msk_pth), batch_size, None,
-                                             shuffle=True)
+                                             shuffle=True, domain=target_domain)
 
-    target_val_dataloader = get_dataloader(target_domain, os.path.join(ctx["target_val_dir"], img_pth),
+    target_val_dataloader = get_dataloader(os.path.join(ctx["target_val_dir"], img_pth),
                                            os.path.join(ctx["target_val_dir"], msk_pth), batch_size, None,
-                                           shuffle=False, drop_last=False)
+                                           shuffle=False, drop_last=False, domain=target_domain)
 
     # Load the model
     u_net = UNet()
@@ -454,8 +457,8 @@ def cmd_train(ctx):
     segmenter = nn.DataParallel(segmenter)
     domain_pred = nn.DataParallel(domain_pred)
 
-    criteron = dice_loss()
-    criteron.cuda()
+    criterion = dice_loss()
+    criterion.cuda()
     domain_criterion = nn.BCELoss()
     domain_criterion.cuda()
     conf_criterion = confusion_loss()
@@ -476,7 +479,7 @@ def cmd_train(ctx):
     optimizers = [optimizer, optimizer_conf, optimizer_dm]
     train_dataloaders = [source_train_dataloader, target_train_dataloader]
     val_dataloaders = [source_val_dataloader, target_val_dataloader]
-    criterions = [criteron, conf_criterion, domain_criterion]
+    criterions = [criterion, conf_criterion, domain_criterion]
     epochs = ctx["epochs"]
     epoch_reached = ctx["epoch_reached"]
     epoch_stage_1 = ctx["epoch_stage_1"]
@@ -510,8 +513,6 @@ def cmd_train(ctx):
 
             print('Unlearning')
             print('Epoch ', epoch, '/', epochs, flush=True)
-            optimizers = [optimizer, optimizer_conf, optimizer_dm]
-
             loss, acc, dm_loss, conf_loss = train_unlearn(ctx, models, train_dataloaders, optimizers, criterions,
                                                           epoch)
             torch.cuda.empty_cache()  # Clear memory cache
