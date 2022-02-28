@@ -502,7 +502,7 @@ def cmd_train(ctx):
             # Save the losses each epoch so we can plot them live
             np.save(os.path.join(out_dir, LOSS_PATH), np.array(loss_store))
 
-            if epoch == epoch_stage_1 - 1:
+            if epoch == epoch_stage_1 - 1 or epoch % ctx["checkpoint"]:
                 torch.save(u_net.state_dict(), os.path.join(out_dir, PRETRAIN_UNET))
                 torch.save(segmenter.state_dict(), os.path.join(out_dir, PRETRAIN_SEGMENTER))
                 torch.save(domain_pred.state_dict(), os.path.join(out_dir, PRETRAIN_DOMAIN))
