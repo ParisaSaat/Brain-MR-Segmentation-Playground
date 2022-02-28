@@ -8,7 +8,7 @@ from metrics.dice import dice_score
 from metrics.hd import hausdorff_score
 
 
-def assess(files, preds_path, gts_path, mask_type):
+def assess(files, preds_path, gts_path, mask_type, experiment_name):
     mask_suffix = 'pveseg' if mask_type == 'wgc' else 'staple'
     with open(files) as f:
         file_ids = [line.rstrip() for line in f]
@@ -26,7 +26,8 @@ def assess(files, preds_path, gts_path, mask_type):
 
         dice.append(dice_score(pred, gt))
         hd.append(hausdorff_score(pred, gt))
-
+    np.save('dice_{}.npy'.format(experiment_name))
+    np.save('hd_{}.npy'.format(experiment_name))
     results = {
         'dice_score': sum(dice) / len(dice),
         'hausdorff_score': sum(hd) / len(hd)
@@ -36,6 +37,7 @@ def assess(files, preds_path, gts_path, mask_type):
 
 def create_parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-experiment_name', type=str, help='experiment name')
     parser.add_argument('-files', type=str, help='file ids')
     parser.add_argument('-pred', type=str, help='predictions directory path')
     parser.add_argument('-gt', type=str, help='ground truth directory path')
@@ -46,5 +48,5 @@ def create_parser():
 
 if __name__ == '__main__':
     opt = create_parser()
-    result = assess(opt.files, opt.pred, opt.gt, opt.type)
+    result = assess(opt.files, opt.pred, opt.gt, opt.type, opt.experiment_name)
     print(result)
