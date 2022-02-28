@@ -176,7 +176,7 @@ class DomainPredictor(nn.Module):
         self.decoder5 = DomainPredictor._projector_block(features, 1, name="projectorblock")
         # Projector block to reduce features
         self.domain = nn.Sequential()
-        self.domain.add_module('r_fc1', nn.Linear(360, 96))
+        self.domain.add_module('r_fc1', nn.Linear(400, 96))
         self.domain.add_module('r_relu1', nn.ReLU(True))
         self.domain.add_module('d_fc2', nn.Linear(96, 32))
         self.domain.add_module('d_relu2', nn.ReLU(True))
@@ -190,7 +190,7 @@ class DomainPredictor(nn.Module):
         dec3 = self.decoder3(self.pool2(dec2))
         dec4 = self.decoder4(self.pool3(dec3))
         dec5 = self.decoder5(self.pool3(dec4))
-        dec5 = dec5.view(-1, 360)
+        dec5 = dec5.view(-1, 400)
         domain_pred = self.domain(dec5)
         return domain_pred
 
