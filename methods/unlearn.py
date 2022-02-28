@@ -427,6 +427,8 @@ def cmd_train(ctx):
     img_pth = 'images_wgc' if problem == 'wgc' else 'images'
     msk_pth = 'masks_wgc' if problem == 'wgc' else 'masks'
     batch_size = ctx["batch_size"]
+    out_dir = ctx["out_dir"]
+    os.makedirs(out_dir, exist_ok=True)
     source_train_dataloader = get_dataloader(os.path.join(ctx["source_train_dir"], img_pth),
                                              os.path.join(ctx["source_train_dir"], msk_pth), batch_size,
                                              None, domain=source_domain)
@@ -498,12 +500,12 @@ def cmd_train(ctx):
             loss_store.append([loss, val_loss, acc, val_acc, dm_loss, conf_loss])
 
             # Save the losses each epoch so we can plot them live
-            np.save(LOSS_PATH, np.array(loss_store))
+            np.save(os.path.join(out_dir, LOSS_PATH), np.array(loss_store))
 
             if epoch == epoch_stage_1 - 1:
-                torch.save(u_net.state_dict(), PRETRAIN_UNET)
-                torch.save(segmenter.state_dict(), PRETRAIN_SEGMENTER)
-                torch.save(domain_pred.state_dict(), PRETRAIN_DOMAIN)
+                torch.save(u_net.state_dict(), os.path.join(out_dir, PRETRAIN_UNET))
+                torch.save(segmenter.state_dict(), os.path.join(out_dir, PRETRAIN_SEGMENTER))
+                torch.save(domain_pred.state_dict(), os.path.join(out_dir, PRETRAIN_DOMAIN))
 
         else:
             optimizer = optim.Adam(list(u_net.parameters()) + list(segmenter.parameters()), lr=1e-5)
@@ -519,14 +521,14 @@ def cmd_train(ctx):
             val_loss, val_acc = val_unlearn(ctx, models, val_dataloaders, criterions)
 
             loss_store.append([loss, val_loss, acc, val_acc, dm_loss, conf_loss])
-            np.save(LOSS_PATH, np.array(loss_store))
+            np.save(os.path.join(out_dir, LOSS_PATH), np.array(loss_store))
 
             # Decide whether the model should stop training or not
             early_stopping(val_loss, models, epoch, optimizer, loss,
                            [CHK_PATH_UNET, CHK_PATH_SEGMENTER, CHK_PATH_DOMAIN])
             if early_stopping.early_stop:
                 loss_store = np.array(loss_store)
-                np.save(LOSS_PATH, loss_store)
+                np.save(os.path.join(out_dir, LOSS_PATH), loss_store)
                 sys.exit('Patience Reached - Early Stopping Activated')
 
             if epoch == epochs:
@@ -534,11 +536,11 @@ def cmd_train(ctx):
                 print('Saving the model', flush=True)
 
                 # Save the model in such a way that we can continue training later
-                torch.save(u_net.state_dict(), PATH_UNET)
-                torch.save(segmenter.state_dict(), PATH_SEGMENTER)
-                torch.save(domain_pred.state_dict(), PATH_DOMAIN)
+                torch.save(u_net.state_dict(), os.path.join(out_dir, PATH_UNET))
+                torch.save(segmenter.state_dict(), os.path.join(out_dir, PATH_SEGMENTER))
+                torch.save(domain_pred.state_dict(), os.path.join(out_dir, PATH_DOMAIN))
 
                 loss_store = np.array(loss_store)
-                np.save(LOSS_PATH, loss_store)
+                np.save(os.path.join(out_dir, LOSS_PATH), loss_store)
 
             torch.cuda.empty_cache()  # Clear memory cache
