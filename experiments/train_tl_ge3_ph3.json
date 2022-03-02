@@ -1,7 +1,7 @@
 {
   "method": "fine_tuning",
   "command": "train",
-  "experiment_name": "train_tl_ge3_ph3",
+  "experiment_name": "r_train_tl_ge3_ph3",
   "data_dir": "/home/parisaat/scratch/data/cc359/philips3/slices/train",
   "batch_size": 32,
   "patch_height": 128,
