@@ -1,0 +1,18 @@
+{
+  "method": "fine_tuning",
+  "command": "train",
+  "experiment_name": "train_tl_ge3_ph3",
+  "data_dir": "/home/parisaat/scratch/data/cc359/philips3/slices/train",
+  "batch_size": 32,
+  "patch_height": 128,
+  "patch_width": 128,
+  "num_epochs": 2,
+  "problem": "ss",
+  "initial_lr": 0.000125,
+  "patience": 10,
+  "drop_rate": 0.5,
+  "plot_rate": 0.1,
+  "gpu": 0,
+  "mode": "first",
+  "model_name": "r_ge3_baseline"
+}
