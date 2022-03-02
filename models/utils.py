@@ -1,11 +1,8 @@
-from collections import defaultdict
-
 import numpy as np
 import torch
 import torch.nn as nn
 
 from metrics.dice import dice_score
-from misc.plot_result import plot_segmentation
 
 
 class EarlyStopping:
@@ -70,13 +67,12 @@ def get_current_consistency_weight(weight, epoch, rampup):
     return weight * sigmoid_rampup(epoch, rampup)
 
 
-def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_channels, experiment_name, plot_rate):
+def validation(model, loader, writer, epoch, out_channels):
     val_loss = 0.0
 
     num_samples = 0
     num_steps = 0
 
-    result_dict = defaultdict(list)
     for i, batch in enumerate(loader):
         image_data, mask_data = batch['image'], batch['mask']
         if out_channels != 1:
@@ -98,49 +94,14 @@ def validation(model, loader, writer, metric_fns, epoch, val_samples_dir, out_ch
                 dice_loss = -dice_score(model_out, mask_data_gpu)
             val_loss += dice_loss.item()
 
-        masks = mask_data_gpu.cpu().numpy().astype(np.uint8)
-        imgs = image_data_gpu.cpu().numpy().astype(np.uint8)
         predictions = model_out.cpu().numpy()
-
-        plot = True
-        for metric_fn in metric_fns:
-            for prediction, mask, img in zip(predictions, masks, imgs):
-                if out_channels != 1:
-                    sum = 0
-                    for k in range(out_channels):
-                        sum += metric_fn(prediction[k, :, :], mask[:, :, k])
-                    res = sum / out_channels
-                else:
-                    prediction = prediction.squeeze(axis=0)
-                    res = metric_fn(prediction, mask)
-                dict_key = 'val_{}'.format(metric_fn.__name__)
-                if not res or np.isnan(res):
-                    continue
-                result_dict[dict_key].append(res)
-                if plot:
-                    chance = np.random.uniform(0, 1)
-                    if chance < plot_rate:
-                        plot_segmentation(img.squeeze(axis=0), prediction, mask, val_samples_dir,
-                                          '{}_{}'.format(epoch, chance))
-            plot = False
 
         num_samples += len(predictions)
         num_steps += 1
 
     val_loss_avg = val_loss / num_steps
 
-    metrics_dict = defaultdict()
-    for key, val in result_dict.items():
-        metric_file = '{}_{}'.format(key, experiment_name)
-        values = np.asarray(val, dtype=np.float32)
-        np.save(metric_file, values)
-        mean = np.mean(values)
-        std = np.std(values)
-        metrics_dict['{}_mean'.format(key)] = mean
-        metrics_dict['{}_std'.format(key)] = std
-    np.save('metrics_{}.npy'.format(experiment_name), metrics_dict)
     writer.add_scalars('losses', {'loss': val_loss_avg}, epoch)
-    writer.add_scalars('metrics', metrics_dict, epoch)
     return val_loss_avg
 
 

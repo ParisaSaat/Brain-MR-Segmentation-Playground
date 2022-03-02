@@ -1,10 +1,8 @@
 import os.path
 import os.path
 import time
-from os import makedirs
 
 import albumentations as A
-import medicaltorch.metrics as mt_metrics
 import torch
 from albumentations.pytorch import ToTensorV2
 from tensorboardX import SummaryWriter
@@ -13,18 +11,16 @@ from tqdm import *
 from config.io import MODEL_PATH
 from config.param import LAMBDA
 from data.utils import get_dataloader
+from metrics.dice import dice_score
 from models.baseline import Unet
 from models.utils import EarlyStopping, scheduler
 from models.utils import validation
-from metrics.dice import dice_score
 
 
 def cmd_train(opt):
     experiment_name = opt["experiment_name"]
     train_dir = opt["train_dir"]
     val_dir = opt["val_dir"]
-    val_samples_dir = 'val_samples_{}'.format(experiment_name)
-    makedirs(val_samples_dir, exist_ok=True)
     if torch.cuda.is_available():
         print('cuda is available')
         torch.cuda.set_device("cuda:0")
@@ -114,13 +110,7 @@ def cmd_train(opt):
 
         model.eval()
 
-        metric_fns = [dice_score, mt_metrics.jaccard_score, mt_metrics.hausdorff_score,
-                      mt_metrics.precision_score, mt_metrics.recall_score,
-                      mt_metrics.specificity_score, mt_metrics.intersection_over_union,
-                      mt_metrics.accuracy_score]
-
-        val_loss = validation(model, validation_dataloader, writer, metric_fns, epoch, val_samples_dir, out_channels,
-                              experiment_name, opt["plot_rate"])
+        val_loss = validation(model, validation_dataloader, writer, epoch, out_channels)
         tqdm.write("Validation Loss: {:.6f}".format(val_loss))
         early_stop = early_stopping(val_loss)
         torch.save(model, MODEL_PATH.format(model_name='{}'.format(experiment_name)))
