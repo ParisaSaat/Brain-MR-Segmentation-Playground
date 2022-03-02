@@ -342,7 +342,7 @@ def val_unlearn(args, models, val_loaders, criterions):
     cuda = torch.cuda.is_available()
 
     [encoder, regressor, domain_predictor] = models
-    [b_val_dataloader, o_val_dataloader] = val_loaders
+    [source_val_dataloader, target_val_dataloader] = val_loaders
     [criteron, _, _] = criterions
 
     encoder.eval()
@@ -356,24 +356,25 @@ def val_unlearn(args, models, val_loaders, criterions):
 
     batches = 0
     with torch.no_grad():
-        for batch_idx, ((b_data, b_target, b_domain), (o_data, o_target, o_domain)) in enumerate(
-                zip(b_val_dataloader, o_val_dataloader)):
-            if len(b_data) == args["batch_size"]:
+        for batch_idx, (source_load, target_load) in enumerate(zip(source_val_dataloader, target_val_dataloader)):
+            s_data, s_target, s_domain = source_load['image'], source_load['mask'], source_load['domain']
+            t_data, t_target, t_domain = target_load['image'], target_load['mask'], target_load['domain']
+            if len(s_data) == args["batch_size"]:
 
-                n1 = np.random.randint(1, len(b_data) - 1)
-                n2 = len(b_data) - n1
+                n1 = np.random.randint(1, len(s_data) - 1)
+                n2 = len(s_data) - n1
 
-                b_data = b_data[:n1]
-                b_target = b_target[:n1]
-                b_domain = b_domain[:n1]
+                s_data = s_data[:n1]
+                s_target = s_target[:n1]
+                s_domain = s_domain[:n1]
 
-                o_data = o_data[:n2]
-                o_target = o_target[:n2]
-                o_domain = o_domain[:n2]
+                t_data = t_data[:n2]
+                t_target = t_target[:n2]
+                t_domain = t_domain[:n2]
 
-                data = torch.cat((b_data, o_data), 0)
-                target = torch.cat((b_target, o_target), 0)
-                domain_target = torch.cat((b_domain, o_domain), 0)
+                data = torch.cat((s_data, t_data), 0)
+                target = torch.cat((s_target, t_target), 0)
+                domain_target = torch.cat((s_domain, t_domain), 0)
                 target = target.type(torch.LongTensor)
 
                 if cuda:
