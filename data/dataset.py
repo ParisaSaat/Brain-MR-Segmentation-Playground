@@ -268,17 +268,21 @@ class CC359(Dataset):
         if not mask:
             return "{id}.nii.gz".format(id=file_id)
         else:
-            return "{id}_{mask_type}.nii.gz".format(id=file_id, mask_type=self.mask_type)
+            file_name = "{id}_staple.nii.gz".format(id=file_id) if self.mask_type == 'staple' else "{id}.nii.gz".format(
+                id=file_id)
+            return file_name
 
 
 class BrainMRI2D(Dataset):
-    def __init__(self, img_root_dir, gt_root_dir=None, file_ids=None, transform=None, labeled=True, domain=0):
+    def __init__(self, img_root_dir, gt_root_dir=None, file_ids=None, transform=None, labeled=True, domain=0,
+                 mt_trans=False):
         self.domain = domain
         self.img_root_dir = img_root_dir
         self.gt_root_dir = gt_root_dir
         self.file_ids = file_ids
         self.transform = transform
         self.labeled = labeled
+        self.mt_trans = mt_trans
 
         self.pairs_path = []
         for file_id in self.file_ids:
@@ -296,9 +300,14 @@ class BrainMRI2D(Dataset):
         mask_affine = nifti_mask.affine
 
         if self.transform:
-            transformed = self.transform(image=image, mask=mask)
-            image = transformed.get('image')
-            mask = transformed.get('mask')
+            if self.mt_trans:
+                transformed = self.transform({'input': Image.fromarray(image), 'gt': Image.fromarray(mask)})
+                image = transformed.get('input')
+                mask = transformed.get('gt')
+            else:
+                transformed = self.transform(image=image, mask=mask)
+                image = transformed.get('image')
+                mask = transformed.get('mask')
         sample = {'image': image, 'mask': mask, 'mask_affine': mask_affine, 'image_affine': image_affine, 'idx': idx,
                   'domain': self.domain}
         return sample
