@@ -24,7 +24,7 @@ def split_data(data_dir, ratio, image_path, mask_path, mask_type):
 
     train_files, rem_files = train_test_split(file_ids, test_size=ratio, random_state=42, shuffle=True)
     val_files, test_files = train_test_split(rem_files, test_size=0.5, random_state=42, shuffle=True)
-    mask_file_template = '{file_id}_staple.nii.gz' if mask_type == 'staple' else '{file_id}_pveseg.nii.gz'
+    mask_file_template = '{file_id}_staple.nii.gz' if mask_type == 'staple' else '{file_id}.nii.gz'
     copy_files(train_files, imgs_dir, os.path.join(train_dir, image_path), IMAGE_FILE_TEMPLATE)
     copy_files(train_files, masks_dir, os.path.join(train_dir, mask_path), mask_file_template)
     copy_files(val_files, imgs_dir, os.path.join(val_dir, image_path), IMAGE_FILE_TEMPLATE)
