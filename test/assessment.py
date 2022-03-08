@@ -5,7 +5,7 @@ import nibabel as nib
 import numpy as np
 
 from metrics.dice import dice_score
-from metrics.hd import hausdorff_score
+from metrics.hd import hausdorff_score, medpy_hd95, sitk_hd95, seg_metrics_hd95
 
 
 def assess(files, preds_path, gts_path, mask_type, experiment_name):
@@ -13,10 +13,10 @@ def assess(files, preds_path, gts_path, mask_type, experiment_name):
     with open(files) as f:
         file_ids = [line.rstrip() for line in f]
 
-    hd = []
+    hds = []
     dice = []
     for file_id in file_ids:
-        pred_path = os.path.join(preds_path, '{}_{}.nii.gz'.format(file_id, mask_suffix))
+        pred_path = os.path.join(preds_path, '{}_pred.nii.gz'.format(file_id))
         nifti_pred = nib.load(pred_path)
         pred = nifti_pred.get_fdata(dtype=np.float32)
 
@@ -25,12 +25,14 @@ def assess(files, preds_path, gts_path, mask_type, experiment_name):
         gt = nifti_gt.get_fdata(dtype=np.float32)
 
         dice.append(dice_score(pred, gt))
-        hd.append(hausdorff_score(pred, gt))
-    np.save('dice_{}.npy'.format(experiment_name))
-    np.save('hd_{}.npy'.format(experiment_name))
+        hd = hausdorff_score(pred, gt)
+        hd_95 = seg_metrics_hd95(pred_path, gt_path)
+        hds.append(hd)
+    # np.save('dice_{}.npy'.format(experiment_name), dice)
+    # np.save('hd_{}.npy'.format(experiment_name), )
     results = {
         'dice_score': sum(dice) / len(dice),
-        'hausdorff_score': sum(hd) / len(hd)
+        'hausdorff_score': sum(hds) / len(hds)
     }
     return results
 
