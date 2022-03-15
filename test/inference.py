@@ -49,19 +49,21 @@ def main(opt):
 
     with open(opt.files) as f:
         file_ids = [line.rstrip() for line in f]
-    for file_id in file_ids:
-        img_path = os.path.join(data_dir, '{}.nii.gz'.format(file_id))
-        nifti_image = nib.load(img_path)
-        image_affine = nifti_image.affine
-        image = nifti_image.get_fdata(dtype=np.float32)
-        image_data_gpu = torch.tensor(image).cuda()
-        print(image_data_gpu.shape)
-        output_volume = np.zeros(image_data_gpu.shape)
-        for i in range(image_data_gpu.shape[0]):
-            model_out = model(image_data_gpu[i])
-            output_volume[i] = model_out.cpu()
-        pred = nib.Nifti1Image(output_volume, affine=image_affine)
-        nib.save(pred, os.path.join(opt.pred_dir, '{}_pred.nii.gz'.format(file_id)))
+    with torch.no_grad():
+        for file_id in file_ids:
+            img_path = os.path.join(data_dir, 'images/{}.nii.gz'.format(file_id))
+            nifti_image = nib.load(img_path)
+            image = nifti_image.get_fdata(dtype=np.float32)
+            image_data_gpu = torch.tensor(image).cuda()
+            mask_path = os.path.join(data_dir, 'masks/{}_staple.nii.gz'.format(file_id))
+            nifti_mask = nib.load(mask_path)
+            mask_affine = nifti_mask.affine
+            output_volume = np.zeros(image_data_gpu.shape)
+            for i in range(image_data_gpu.shape[0]):
+                model_out = model(image_data_gpu[i].unsqueeze(0).unsqueeze(0))
+                output_volume[i] = model_out.cpu()
+            pred = nib.Nifti1Image(output_volume, affine=mask_affine)
+            nib.save(pred, os.path.join(opt.pred_dir, '{}_pred.nii.gz'.format(file_id)))
     end_time = time.time()
     total_time = end_time - start_time
     tqdm.write("Testing took {:.2f} seconds.".format(total_time))

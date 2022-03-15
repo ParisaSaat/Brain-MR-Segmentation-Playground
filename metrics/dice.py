@@ -1,16 +1,22 @@
+import numpy as np
 import torch
 import torch.nn as nn
 
 
-def dice_score(pred, target):
+def dice_score(pred, target, num_labels):
     eps = 0.0001
-    iflat = pred.reshape(-1)
-    tflat = target.reshape(-1)
-    intersection = (iflat * tflat).sum()
-    union = iflat.sum() + tflat.sum()
+    dice = np.zeros(num_labels - 1)
+    for label in range(1, num_labels):
+        target_surface = target == label
+        pred_surface = pred == label
 
-    dice = (2.0 * intersection + eps) / (union + eps)
-    return dice
+        iflat = pred_surface.reshape(-1)
+        tflat = target_surface.reshape(-1)
+        intersection = (iflat * tflat).sum()
+        union = iflat.sum() + tflat.sum()
+
+        dice[label - 1] = (2.0 * intersection + eps) / (union + eps)
+    return np.mean(dice)
 
 
 class dice_loss(nn.Module):
