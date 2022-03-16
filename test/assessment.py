@@ -11,7 +11,6 @@ from metrics.hd import hd_95_rob
 
 def write_results(col, col_name, file_path):
     csv_input = pd.read_csv(file_path) if os.path.isfile(file_path) else pd.DataFrame()
-    print('col:', col)
     csv_input[col_name] = col
     csv_input.to_csv(file_path, index=False)
 
@@ -33,12 +32,13 @@ def assess(files, preds_path, gts_path, mask_type, experiment_name, out_dir):
         nifti_gt = nib.load(gt_path)
         gt = nifti_gt.get_fdata(dtype=np.float32)
 
-
         dice.append(dice_score(pred, gt, num_labels))
         hd_95 = hd_95_rob(pred_path, gt_path, num_labels)
         hds.append(hd_95)
     write_results(dice, experiment_name, os.path.join(out_dir, 'dice.csv'))
     write_results(hds, experiment_name, os.path.join(out_dir, 'hd95.csv'))
+    write_results([np.mean(dice)], experiment_name, os.path.join(out_dir, 'dice_mean.csv'))
+    write_results([np.mean(hds)], experiment_name, os.path.join(out_dir, 'hd95_mean.csv'))
 
 
 def create_parser():
