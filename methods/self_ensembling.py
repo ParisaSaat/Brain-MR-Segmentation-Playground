@@ -1,12 +1,8 @@
-import json
 import os
-import sys
 import time
 from collections import defaultdict
+
 import albumentations as A
-from albumentations.pytorch import ToTensorV2
-
-
 import medicaltorch.datasets as mt_datasets
 import medicaltorch.losses as mt_losses
 import medicaltorch.metrics as mt_metrics
@@ -15,6 +11,7 @@ import numpy as np
 import torch
 import torchvision as tv
 import torchvision.utils as vutils
+from albumentations.pytorch import ToTensorV2
 from tensorboardX import SummaryWriter
 from torch.nn import functional as F
 from tqdm import *
@@ -173,7 +170,6 @@ def validation(model, model_ema, loader, writer,
                     res = sum / out_channels
                 else:
                     prediction = prediction.squeeze(axis=0)
-                    ground_truth = ground_truth.squeeze(axis=0)
                     res = metric_fn(prediction, ground_truth)
                 dict_key = 'val_{}'.format(metric_fn.__name__)
                 if not res or np.isnan(res):
@@ -206,7 +202,6 @@ def validation(model, model_ema, loader, writer,
         num_steps += 1
 
     val_loss_avg = val_loss / num_steps
-
 
     metrics_dict = defaultdict()
     for key, val in result_dict.items():
@@ -275,7 +270,6 @@ def linked_batch_augmentation(input_batch, preds_unsup, n_channels):
         out1 = teacher_transform(image=input_batch_cpu[sample_idx])
         out2 = teacher_transform(image=x)
         samples_linked_aug.append({'image': [out1['image'], out2['image']]})
-
 
     # samples_linked_aug = mt_datasets.mt_collate(samples_linked_aug)
     return samples_linked_aug
@@ -378,8 +372,8 @@ def cmd_train(ctx):
     # Sample Xv, Yv from this
     validation_dataloader = get_dataloader(os.path.join(ctx['target_val_dir'], img_pth),
                                            os.path.join(ctx['target_val_dir'], msk_pth), ctx["target_batch_size"],
-                                           target_val_adapt_transform, shuffle=False, drop_last=False,
-                                           num_workers=num_workers, collate_fn=mt_datasets.mt_collate, pin_memory=True, mt_trans=True)
+                                           target_val_adapt_transform, shuffle=False, drop_last=False, mt_trans=True,
+                                           num_workers=num_workers, collate_fn=mt_datasets.mt_collate, pin_memory=True)
 
     model = create_model(ctx)
 
