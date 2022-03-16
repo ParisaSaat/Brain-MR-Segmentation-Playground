@@ -239,7 +239,7 @@ def validation(model, model_ema, loader, writer,
     # writer.add_scalars(prefix + '_metrics', result_dict, epoch)
 
 
-def linked_batch_augmentation(input_batch, preds_unsup):
+def linked_batch_augmentation(input_batch, preds_unsup, n_channels):
     # Teach transformation
     # teacher_transform = tv.transforms.Compose([
     #     mt_transforms.ToPIL(labeled=False),
@@ -271,7 +271,7 @@ def linked_batch_augmentation(input_batch, preds_unsup):
 
     samples_linked_aug = []
     for sample_idx in range(input_batch_size):
-        x = np.array([preds_unsup_cpu[sample_idx][i:i + 1] for i in range(4)]).transpose((1, 2, 3, 0)).squeeze(0)
+        x = np.array([preds_unsup_cpu[sample_idx][i:i + 1] for i in range(n_channels)]).transpose((1, 2, 3, 0)).squeeze(0)
         out1 = teacher_transform(image=input_batch_cpu[sample_idx])
         out2 = teacher_transform(image=x)
         samples_linked_aug.append({'image': [out1['image'], out2['image']]})
@@ -359,7 +359,7 @@ def cmd_train(ctx):
     source_train_loader = get_dataloader(os.path.join(ctx['train_dir'], img_pth),
                                          os.path.join(ctx['train_dir'], msk_pth), ctx["source_batch_size"],
                                          source_transform, shuffle=True, drop_last=True, num_workers=num_workers,
-                                         collate_fn=mt_datasets.mt_collate, pin_memory=True, mean_teacher=True)
+                                         collate_fn=mt_datasets.mt_collate, pin_memory=True, mt_trans=True)
 
     # Sample Xt1, Xt2 from this
     '''
@@ -373,14 +373,13 @@ def cmd_train(ctx):
                                                os.path.join(ctx['target_train_dir'], msk_pth),
                                                ctx["target_batch_size"], target_adapt_transform,
                                                shuffle=True, drop_last=True, num_workers=num_workers,
-                                               collate_fn=mt_datasets.mt_collate, pin_memory=True, mean_teacher=True)
+                                               collate_fn=mt_datasets.mt_collate, pin_memory=True, mt_trans=True)
 
     # Sample Xv, Yv from this
     validation_dataloader = get_dataloader(os.path.join(ctx['target_val_dir'], img_pth),
                                            os.path.join(ctx['target_val_dir'], msk_pth), ctx["target_batch_size"],
                                            target_val_adapt_transform, shuffle=False, drop_last=False,
-                                           num_workers=num_workers, collate_fn=mt_datasets.mt_collate, pin_memory=True,
-                                           mean_teacher=True)
+                                           num_workers=num_workers, collate_fn=mt_datasets.mt_collate, pin_memory=True, mt_trans=True)
 
     model = create_model(ctx)
 
@@ -469,7 +468,7 @@ def cmd_train(ctx):
                 with torch.no_grad():
                     teacher_preds_unsup = model_ema(target_adapt_input)
                 linked_aug_batch = \
-                    linked_batch_augmentation(target_adapt_input, teacher_preds_unsup)
+                    linked_batch_augmentation(target_adapt_input, teacher_preds_unsup, ctx["out_channels"])
 
                 adapt_input_batch = np.array([aug['image'][0].numpy() for aug in linked_aug_batch])
                 adapt_input_batch = torch.tensor(adapt_input_batch).transpose(2, 1).cuda()
@@ -588,30 +587,3 @@ def cmd_train(ctx):
         end_time = time.time()
         total_time = end_time - start_time
         tqdm.write("Epoch {} took {:.2f} seconds.".format(epoch, total_time))
-
-
-def run_main(json_ctx=None):
-    if not json_ctx and len(sys.argv) <= 1:
-        print("\ndomainadapt [config filename].json\n")
-        return
-
-    elif json_ctx:
-        ctx = json_ctx
-    else:
-        try:
-            with open(sys.argv[1], "r") as fhandle:
-                ctx = json.load(fhandle)
-        except FileNotFoundError:
-            print("\nFile {} not found !\n".format(sys.argv[1]))
-            return
-
-    command = ctx["command"]
-    # os.environ["CUDA_VISIBLE_DEVICES"]=str(ctx["gpu"])
-    torch.cuda.set_device(int(ctx["gpu"]))
-
-    if command == 'train':
-        cmd_train(ctx)
-
-
-if __name__ == '__main__':
-    run_main()
