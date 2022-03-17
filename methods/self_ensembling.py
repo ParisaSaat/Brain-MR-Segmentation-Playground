@@ -191,7 +191,7 @@ def validation(model, model_ema, loader, writer,
                         res = sum / out_channels
                     else:
                         prediction = prediction.squeeze(axis=0)
-                        ground_truth = ground_truth.squeeze(axis=0)
+                        ground_truth = ground_truth
                         res = metric_fn(prediction, ground_truth)
                     dict_key = 'val_ema_{}'.format(metric_fn.__name__)
                     if not res or np.isnan(res):
