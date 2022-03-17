@@ -7,9 +7,12 @@ def dice_score(pred, target, num_labels):
     eps = 0.0001
     dice = np.zeros(num_labels - 1)
     for label in range(1, num_labels):
-        target_surface = target == label
-        pred_surface = pred == label
-
+        if num_labels > 2:
+            target_surface = target == label
+            pred_surface = pred == label
+        else:
+            target_surface = target
+            pred_surface = pred
         iflat = pred_surface.reshape(-1)
         tflat = target_surface.reshape(-1)
         intersection = (iflat * tflat).sum()
