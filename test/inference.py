@@ -40,6 +40,9 @@ def main(opt):
     data_dir = opt.data_dir
     if torch.cuda.is_available():
         torch.cuda.set_device("cuda:0")
+    images_path = 'images_wgc' if opt.problem == 'wgc' else 'images'
+    masks_path = 'masks_wgc' if opt.problem == 'wgc' else 'masks'
+    mask_type = 'pveseg' if opt.problem == 'wgc' else 'staple'
     start_time = time.time()
     if opt.state_dict:
         model = load_pretrained_model(opt.model_name, opt.state_dict)
@@ -51,17 +54,18 @@ def main(opt):
         file_ids = [line.rstrip() for line in f]
     with torch.no_grad():
         for file_id in file_ids:
-            img_path = os.path.join(data_dir, 'images/{}.nii.gz'.format(file_id))
+            img_path = os.path.join(data_dir, '{}/{}.nii.gz'.format(images_path, file_id))
             nifti_image = nib.load(img_path)
             image = nifti_image.get_fdata(dtype=np.float32)
             image_data_gpu = torch.tensor(image).cuda()
-            mask_path = os.path.join(data_dir, 'masks/{}_staple.nii.gz'.format(file_id))
+            mask_path = os.path.join(data_dir, '{}/{}_{}.nii.gz'.format(masks_path, file_id, mask_type))
             nifti_mask = nib.load(mask_path)
             mask_affine = nifti_mask.affine
             output_volume = np.zeros(image_data_gpu.shape)
             for i in range(image_data_gpu.shape[0]):
                 model_out = model(image_data_gpu[i].unsqueeze(0).unsqueeze(0))
-                output_volume[i] = model_out.cpu()
+                decoded = torch.argmax(model_out, dim=1) if opt.problem == 'wgc' else model_out
+                output_volume[i] = decoded.cpu()
             pred = nib.Nifti1Image(output_volume, affine=mask_affine)
             nib.save(pred, os.path.join(opt.pred_dir, '{}_pred.nii.gz'.format(file_id)))
     end_time = time.time()
