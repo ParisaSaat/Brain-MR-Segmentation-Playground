@@ -19,6 +19,7 @@ def cmd_train(opt):
     problem = opt["problem"]
     img_pth = 'images_wgc' if problem == 'wgc' else 'images'
     msk_pth = 'masks_wgc' if problem == 'wgc' else 'masks'
+    num_labels = 4 if problem == 'wgc' else 2
     out_channels = 4 if problem == 'wgc' else 1
     if torch.cuda.is_available():
         torch.cuda.set_device("cuda:0")
@@ -74,13 +75,14 @@ def cmd_train(opt):
                 prediction = model(train_image)
                 loss = 0
                 for k in range(out_channels):
-                    loss += dice_score(prediction[:, k, :, :], train_mask[:, :, :, k])
+                    loss += dice_score(prediction[:, k, :, :], train_mask[:, :, :, k], num_labels)
                 loss = loss / out_channels
             else:
                 train_mask = train_mask.cuda()
                 prediction = model(train_image)
-                loss = dice_score(prediction, train_mask)
+                loss = dice_score(prediction, train_mask, num_labels)
             optimizer.zero_grad()
+            loss = torch.tensor(loss, requires_grad=True)
             loss.backward()
 
             optimizer.step()
