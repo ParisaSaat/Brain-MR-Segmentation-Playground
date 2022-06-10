@@ -1,0 +1,22 @@
+{
+  "method": "medgan",
+  "command": "train",
+  "experiment_name": "train_medgan_si3",
+  "target_train_dir": "/home/new_user/DA/Dataset/cc359/siemens3/slices/train",
+  "target_val_dir": "/home/new_user/DA/Dataset/cc359/siemens3/slices/test",
+  "source_train_dir": "/home/new_user/DA/Dataset/cc359/ge3/slices/train",
+  "UNET_PATH": "/home/new_user/DA/Brain-MR-Segmentation-Playground/trained_models/train_base_ge3_ss.pth",
+  "source_val_dir": "/home/new_user/DA/Dataset/cc359/ge3/slices/test",
+  "batch_size": 1,
+  "patch_height": 256,
+  "patch_width": 256,
+  "num_epochs": 200,
+  "problem": "skull-stripping",
+  "initial_lr": 2e-4,
+  "momentum": 0.5,
+  "patience": 10,
+  "drop_rate": 0.5,
+  "plot_rate": 0.1,
+  "gpu": 0,
+  "lambda_L1": 100.0
+}

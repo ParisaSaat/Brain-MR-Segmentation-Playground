@@ -174,3 +174,50 @@ class confusion_loss(nn.Module):
         normalised_log_sum = torch.div(log_sum, x.size()[1])
         loss = torch.mul(torch.sum(normalised_log_sum, dim=0), -1)
         return loss
+
+
+def gram_matrix(input):
+    a, b, c, d = input.size()  # a=batch size(=1)
+    # b=number of feature maps
+    # (c,d)=dimensions of a f. map (N=c*d)
+
+    features = input.view(a * b, c * d)  # resise F_XL into \hat F_XL
+
+    G = torch.mm(features, features.t())  # compute the gram product
+
+    # we 'normalize' the values of the gram matrix
+    # by dividing by the number of element in each feature maps.
+    return G.div(a * b * c * d)
+
+def medgan_val(tloader, sloader, gen, unet, epoch, writer):
+    val_loss = 0.0
+    gen.eval()
+    num_samples = 0
+    num_steps = 0
+    src_l = iter(sloader)
+    for i, batch in enumerate(tloader):
+        timage, tmask = batch['image'].cuda(), batch['mask'].cuda()
+        sbatch = src_l.next()
+        simage, smask = sbatch['image'].cuda(), sbatch['mask'].cuda()
+        # if out_channels != 1:
+        #     one_hot_mask = torch.nn.functional.one_hot(mask_data.long(), num_classes=out_channels).squeeze(-1)
+        #     mask_data_gpu = one_hot_mask.cuda().float()
+        # else:
+        loss = 0
+        with torch.no_grad():
+            genimage = gen(timage)
+            seg_genimage = unet(genimage)
+            dice_loss = dice_score(seg_genimage, smask)
+            val_loss += dice_loss.item()
+
+        predictions = seg_genimage.cpu().numpy()
+
+        num_samples += len(predictions)
+        num_steps += 1
+
+    val_loss_avg = val_loss / num_steps
+
+    
+    writer.add_scalars('dice score', {'dice_score_avg': val_loss_avg}, epoch)
+    print(f'val_dice_score at epoch {epoch} is {val_loss_avg}')
+    gen.train()

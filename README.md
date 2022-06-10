@@ -25,8 +25,8 @@ If  you wish to use the same datasets as ours, you can use our preprocessing scr
 To split the dataset to six domains run the following scrips:
 
 ```sh
-./scripts/split-six-domains-ss.sh -r /path/to/data/cc359 -i /path/to/data/cc359/original -m /path/to/data/cc359/staple
-./scripts/split-six-domains-wgc.sh -r /path/to/data/cc359 -i /path/to/data/cc359/orig -m /path/to/data/cc359/wgc
+./scripts/split-six-domains-ss.sh -r /home/new_user/DA/Dataset/cc359 -i  original -m /home/new_user/DA/Dataset/cc359/staple
+./scripts/split-six-domains-wgc.sh -r /home/new_user/DA/Dataset/cc359 -i /home/new_user/DA/Dataset/cc359/original -m /home/new_user/DA/Dataset/cc359/wgc
 ```
 
 Do the train and test split and preprocessing with following command for each data domain you use:

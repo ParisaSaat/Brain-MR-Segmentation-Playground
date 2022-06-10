@@ -1,6 +1,7 @@
 import os
 from os import makedirs
 
+import tqdm as tq
 import nibabel as nib
 import numpy as np
 from PIL import Image
@@ -208,7 +209,7 @@ class CC359(Dataset):
         makedirs(image_path, exist_ok=True)
         makedirs(mask_path, exist_ok=True)
         n_slices = 0
-        for seg_pair in self.handlers:
+        for seg_pair in tq.tqdm(self.handlers):
             input_data_shape, _ = seg_pair.get_pair_shapes()
             for seg_pair_slice in range(input_data_shape[self.slice_axis]):
                 slice_pair = seg_pair.get_pair_slice(seg_pair_slice, self.slice_axis)
@@ -308,8 +309,7 @@ class BrainMRI2D(Dataset):
                 transformed = self.transform(image=image, mask=mask)
                 image = transformed.get('image')
                 mask = transformed.get('mask')
-        sample = {'image': image, 'mask': mask, 'mask_affine': mask_affine, 'image_affine': image_affine, 'idx': idx,
-                  'domain': self.domain}
+        sample = {'image': image, 'mask': mask, 'mask_affine': mask_affine, 'image_affine': image_affine, 'idx': idx, 'domain': self.domain}
         return sample
 
     def __len__(self):

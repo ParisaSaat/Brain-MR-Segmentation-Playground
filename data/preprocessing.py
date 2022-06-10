@@ -76,15 +76,22 @@ def preprocess(opt):
     slices_test_masks_path = os.path.join(data_dir, 'slices/test', msk_pth)
 
     train_files, val_files, test_files = split_data(data_dir, opt.test_ratio, img_pth, msk_pth, mask_type)
+    print("Data split")
     train_set = CC359(os.path.join(data_dir, 'train', img_pth), os.path.join(data_dir, 'train', msk_pth), opt.plane,
                       train_files, normalizer=None, mask_type=mask_type)
+    print("Train set created")
     val_set = CC359(os.path.join(data_dir, 'val', img_pth), os.path.join(data_dir, 'val', msk_pth), opt.plane,
                     val_files, normalizer=None, mask_type=mask_type)
+    print("Val set created")
     test_set = CC359(os.path.join(data_dir, 'test', img_pth), os.path.join(data_dir, 'test', msk_pth), opt.plane,
                      test_files, normalizer=None, mask_type=mask_type)
+    print("Test set created")
     train_set.save_slices(slices_train_images_path, slices_train_masks_path)
+    print("Train set saved")
     val_set.save_slices(slices_val_images_path, slices_val_masks_path)
+    print("Val set saved")
     test_set.save_slices(slices_test_images_path, slices_test_masks_path)
+    print("Test set saved")
 
 
 if __name__ == '__main__':

@@ -8,8 +8,5 @@ scikit-learn
 scipy
 six
 Sphinx>=1.7.3
-tensorboardX==2.4
-torch==1.9.1
-torchvision
 tqdm
 

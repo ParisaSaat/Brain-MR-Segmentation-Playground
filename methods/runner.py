@@ -3,14 +3,17 @@ import json
 import sys
 
 import torch
+sys.path.append('/home/new_user/DA/Brain-MR-Segmentation-Playground')
 
-
-def run_main(json_ctx=None):
+def run_main(json_ctx='/home/new_user/DA/Brain-MR-Segmentation-Playground/experiments/train_medgan_si3.json'):
+# def run_main(json_ctx=None):
+    
     if not json_ctx and len(sys.argv) <= 1:
         print("\nNo config file is specified.\n")
         return
     elif json_ctx:
-        ctx = json_ctx
+        with open(json_ctx) as f:
+            ctx = json.load(f)
     else:
         try:
             with open(sys.argv[1], "r") as fhandle:
