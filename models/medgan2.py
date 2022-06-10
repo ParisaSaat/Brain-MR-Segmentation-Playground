@@ -161,7 +161,6 @@ class Discriminator(nn.Module):
 
         self.conv3 = nn.Conv2d(ndf * 2, 1, kernel_size=kw, stride=4, padding=padw)
 
-        self.sigmoid = nn.Sigmoid()
         
     def forward(self, input):
         """Standard forward."""
@@ -179,7 +178,7 @@ class Discriminator(nn.Module):
 
         x = self.conv3(x)
         
-        return self.sigmoid(x), features
+        return x, features
 
 
 class VGG(nn.Module):
