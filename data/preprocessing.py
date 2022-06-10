@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from config.io import *
 from config.param import Plane
 from data.dataset import CC359
+from data.utils import min_max_normalization
 
 
 def split_data(data_dir, ratio, image_path, mask_path, mask_type):
@@ -77,11 +78,11 @@ def preprocess(opt):
 
     train_files, val_files, test_files = split_data(data_dir, opt.test_ratio, img_pth, msk_pth, mask_type)
     train_set = CC359(os.path.join(data_dir, 'train', img_pth), os.path.join(data_dir, 'train', msk_pth), opt.plane,
-                      train_files, normalizer=None, mask_type=mask_type)
+                          train_files, normalizer=min_max_normalization, mask_type=mask_type)
     val_set = CC359(os.path.join(data_dir, 'val', img_pth), os.path.join(data_dir, 'val', msk_pth), opt.plane,
-                    val_files, normalizer=None, mask_type=mask_type)
+                    val_files, normalizer=min_max_normalization, mask_type=mask_type)
     test_set = CC359(os.path.join(data_dir, 'test', img_pth), os.path.join(data_dir, 'test', msk_pth), opt.plane,
-                     test_files, normalizer=None, mask_type=mask_type)
+                     test_files, normalizer=min_max_normalization, mask_type=mask_type)
     train_set.save_slices(slices_train_images_path, slices_train_masks_path)
     val_set.save_slices(slices_val_images_path, slices_val_masks_path)
     test_set.save_slices(slices_test_images_path, slices_test_masks_path)
