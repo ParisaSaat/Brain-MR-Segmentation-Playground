@@ -11,7 +11,7 @@ from tqdm import *
 from config.io import MODEL_PATH
 from config.param import LAMBDA
 from data_data.utils import get_dataloader
-from metrics.dice import dice_score
+from metrics.dice import dice_score, dice_scoree
 from models.baseline import Unet
 from models.utils import EarlyStopping, scheduler
 from models.utils import validation
@@ -51,6 +51,7 @@ def cmd_train(opt):
     validation_dataloader = get_dataloader(os.path.join(val_dir, img_pth), os.path.join(val_dir, msk_pth),
                                            opt["batch_size"], val_transform)
     out_channels = 4 if problem == 'wgc' else 1
+    num_labels = 4 if problem == 'wgc' else 2
     model = Unet(drop_rate=opt["drop_rate"], out_channels=out_channels)
     model.cuda()
 
@@ -86,13 +87,13 @@ def cmd_train(opt):
                 prediction = model(train_image)
                 loss = 0
                 for k in range(out_channels):
-                    dice_loss = -dice_score(prediction[:, k, :, :], train_mask[:, :, :, k])
+                    dice_loss = -dice_scoree(prediction[:, k, :, :], train_mask[:, :, :, k], num_labels)
                     loss += dice_loss
                 loss = loss / out_channels
             else:
                 train_mask = train_mask.cuda()
                 prediction = model(train_image)
-                loss = -dice_score(prediction, train_mask)
+                loss = -dice_score(prediction, train_mask, num_labels)
             optimizer.zero_grad()
             loss.backward()
 
@@ -110,7 +111,7 @@ def cmd_train(opt):
 
         model.eval()
 
-        val_loss = validation(model, validation_dataloader, writer, epoch, out_channels)
+        val_loss = validation(model, validation_dataloader, writer, epoch, out_channels, num_labels)
         tqdm.write("Validation Loss: {:.6f}".format(val_loss))
         early_stop = early_stopping(val_loss)
         torch.save(model, MODEL_PATH.format(model_name='{}'.format(experiment_name)))
@@ -118,5 +119,3 @@ def cmd_train(opt):
         end_time = time.time()
         total_time = end_time - start_time
         tqdm.write("Epoch {} took {:.2f} seconds.".format(epoch, total_time))
-        if early_stop:
-            break

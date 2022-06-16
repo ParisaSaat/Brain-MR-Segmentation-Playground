@@ -67,7 +67,7 @@ def get_current_consistency_weight(weight, epoch, rampup):
     return weight * sigmoid_rampup(epoch, rampup)
 
 
-def validation(model, loader, writer, epoch, out_channels):
+def validation(model, loader, writer, epoch, out_channels, num_labels):
     val_loss = 0.0
 
     num_samples = 0
@@ -87,11 +87,11 @@ def validation(model, loader, writer, epoch, out_channels):
             model_out = model(image_data_gpu)
             if out_channels != 1:
                 for k in range(out_channels):
-                    dice_loss = -dice_score(model_out[:, k, :, :], mask_data_gpu[:, :, :, k])
+                    dice_loss = -dice_score(model_out[:, k, :, :], mask_data_gpu[:, :, :, k], num_labels)
                     loss += dice_loss
                 dice_loss = loss / out_channels
             else:
-                dice_loss = -dice_score(model_out, mask_data_gpu)
+                dice_loss = -dice_score(model_out, mask_data_gpu, num_labels)
             val_loss += dice_loss.item()
 
         predictions = model_out.cpu().numpy()

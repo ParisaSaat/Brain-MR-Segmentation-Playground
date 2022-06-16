@@ -1,6 +1,0 @@
-CC0199_siemens_3_64_F
-CC0196_siemens_3_48_M
-CC0226_siemens_3_64_F
-CC0219_siemens_3_49_F
-CC0220_siemens_3_61_M
-CC0181_siemens_3_36_F

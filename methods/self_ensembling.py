@@ -19,7 +19,7 @@ from tqdm import *
 from config.io import MODEL_PATH
 from data_data.utils import get_dataloader
 from models.baseline import Unet
-from models.utils import dice_score
+from metrics.dice import dice_score
 
 
 def decay_poly_lr(current_epoch, num_epochs, initial_lr):
@@ -115,7 +115,7 @@ def validation(model, model_ema, loader, writer,
 
     num_samples = 0
     num_steps = 0
-
+    num_labels = 4 if one_hot else 2
     result_dict = defaultdict(list)
     result_ema_dict = defaultdict(list)
     out_channels = 4 if one_hot else 1
@@ -133,13 +133,13 @@ def validation(model, model_ema, loader, writer,
         loss_ema = 0
         with torch.no_grad():
             model_out = model(input_data_gpu)
-            print("shapes:", model_out.shape, gt_data_gpu.shape)
             if one_hot:
+                gt_data_gpu = gt_data_gpu.squeeze(1)
                 for k in range(out_channels):
-                    loss += dice_score(model_out[:, k, :, :], gt_data_gpu[:, k, :, :])
+                    loss += -dice_score(model_out[:, k, :, :], gt_data_gpu[:, :, :, k], num_labels)
                 val_class_loss = loss / out_channels
             else:
-                val_class_loss = dice_score(model_out, gt_data_gpu)
+                val_class_loss = -dice_score(model_out, gt_data_gpu, num_labels)
             val_loss += val_class_loss.item()
 
             if not ctx['supervised_only']:
@@ -147,10 +147,10 @@ def validation(model, model_ema, loader, writer,
 
                 if one_hot:
                     for k in range(out_channels):
-                        loss_ema += dice_score(model_ema_out[:, k, :, :], gt_data_gpu[:, :, :, k])
+                        loss_ema += -dice_score(model_ema_out[:, k, :, :], gt_data_gpu[:, :, :, k], num_labels)
                     ema_val_class_loss = loss / out_channels
                 else:
-                    ema_val_class_loss = dice_score(model_out, gt_data_gpu)
+                    ema_val_class_loss = -dice_score(model_out, gt_data_gpu, num_labels)
                 ema_val_loss += ema_val_class_loss.item()
 
         gt_masks = gt_data_gpu.cpu().numpy().astype(np.uint8)
@@ -288,6 +288,7 @@ def cmd_train(ctx):
     supervised_only = ctx["supervised_only"]
     problem = ctx["problem"]
     one_hot = problem == 'wgc'
+    num_labels = 4 if problem == 'wgc' else 2
     img_pth = 'images_wgc' if problem == 'wgc' else 'images'
     msk_pth = 'masks_wgc' if problem == 'wgc' else 'masks'
     ctx["out_channels"] = 4 if problem == 'wgc' else 1
@@ -441,10 +442,10 @@ def cmd_train(ctx):
                 train_mask = one_hot_mask.cuda().float()
                 loss = 0
                 for k in range(4):
-                    loss += dice_score(preds_supervised[:, k, :, :], train_mask[:, k, :, :])
+                    loss += -dice_score(preds_supervised[:, k, :, :], train_mask[:, k, :, :], num_labels)
                 class_loss = loss / 4
             else:
-                class_loss = dice_score(preds_supervised, train_gt)
+                class_loss = -dice_score(preds_supervised, train_gt, num_labels)
 
             if not supervised_only:
 

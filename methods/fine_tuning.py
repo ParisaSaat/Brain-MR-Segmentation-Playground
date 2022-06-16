@@ -9,9 +9,9 @@ from tqdm import *
 from config.io import *
 from config.param import *
 from data_data.utils import get_dataloader
-from models.utils import dice_score
+from metrics.dice import dice_score, dice_scoree
 from models.utils import scheduler
-
+import numpy as np
 
 def cmd_train(opt):
     num_epochs = opt["num_epochs"]
@@ -75,14 +75,16 @@ def cmd_train(opt):
                 prediction = model(train_image)
                 loss = 0
                 for k in range(out_channels):
-                    loss += dice_score(prediction[:, k, :, :], train_mask[:, :, :, k], num_labels)
+                    loss += -dice_scoree(prediction[:, k, :, :], train_mask[:, :, :, k], num_labels)
+#                    print('loos:', loss)
                 loss = loss / out_channels
             else:
                 train_mask = train_mask.cuda()
                 prediction = model(train_image)
-                loss = dice_score(prediction, train_mask, num_labels)
+                loss = -dice_score(prediction, train_mask, num_labels)
             optimizer.zero_grad()
-            loss = torch.tensor(loss, requires_grad=True)
+           # loss = torch.tensor(loss, requires_grad=True)
+            #print('loos:', loss)
             loss.backward()
 
             optimizer.step()

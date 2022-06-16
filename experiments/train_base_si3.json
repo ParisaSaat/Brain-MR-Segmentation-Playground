@@ -1,9 +1,9 @@
 {
   "method": "baseline",
   "command": "train",
-  "experiment_name": "train_un_si3",
-  "train_dir": "/home/par/thesis/data/cc359/siemens/slices/train",
-  "val_dir": "/home/par/thesis/data/cc359/siemens/slices/test",
+  "experiment_name": "train_base_si3_ss",
+  "train_dir": "/home/parisa.saat1/data/cc359/siemens3/slices/train",
+  "val_dir": "/home/parisa.saat1/data/cc359/siemens3/slices/test",
   "batch_size": 32,
   "patch_height": 128,
   "patch_width": 128,

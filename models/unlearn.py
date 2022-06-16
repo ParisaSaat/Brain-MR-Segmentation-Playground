@@ -120,6 +120,7 @@ class UNet(nn.Module):
                     ),
                     (name + "relu1", nn.ReLU(inplace=True)),
                     (name + "norm1", nn.BatchNorm2d(num_features=features)),
+                    (name + "drop1", nn.Dropout2d(0.4))
                 ]
             )
         )

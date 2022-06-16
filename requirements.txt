@@ -1,7 +1,7 @@
 albumentations==1.0.3
 matplotlib
 medicaltorch==0.2
-nibabel==3.2.1
+nibabel
 numpy
 Pillow
 scikit-learn
@@ -9,7 +9,7 @@ scipy
 six
 Sphinx>=1.7.3
 tensorboardX==2.4
-torch==1.9.1
+torch
 torchvision
 tqdm
 

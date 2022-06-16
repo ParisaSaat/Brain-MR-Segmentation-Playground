@@ -58,14 +58,18 @@ def main(opt):
             nifti_image = nib.load(img_path)
             image = nifti_image.get_fdata(dtype=np.float32)
             image_data_gpu = torch.tensor(image).cuda()
-            mask_path = os.path.join(data_dir, '{}/{}_{}.nii.gz'.format(masks_path, file_id, mask_type))
+            print('image_data_gpu:', image_data_gpu.shape)
+            mask_path = os.path.join(data_dir, '{}/{}.nii.gz'.format(masks_path, file_id)) if opt.problem == 'wgc' else os.path.join(data_dir, '{}/{}_{}.nii.gz'.format(masks_path, file_id, mask_type))
             nifti_mask = nib.load(mask_path)
             mask_affine = nifti_mask.affine
             output_volume = np.zeros(image_data_gpu.shape)
             for i in range(image_data_gpu.shape[0]):
                 model_out = model(image_data_gpu[i].unsqueeze(0).unsqueeze(0))
+#                 print('model_out:', model_out.shape)
                 decoded = torch.argmax(model_out, dim=1) if opt.problem == 'wgc' else model_out
+#                 print('decoded:', decoded.shape)
                 output_volume[i] = decoded.cpu()
+            print('-----------------------------------------output_volume:', output_volume.shape)
             pred = nib.Nifti1Image(output_volume, affine=mask_affine)
             nib.save(pred, os.path.join(opt.pred_dir, '{}_pred.nii.gz'.format(file_id)))
     end_time = time.time()
