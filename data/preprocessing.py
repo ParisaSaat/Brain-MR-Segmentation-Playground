@@ -59,8 +59,6 @@ def create_parser():
     parser.add_argument('-num_epochs', type=int, default=5, help='number of epochs to train for')
     parser.add_argument('-test_ratio', type=int, default=0.2, help='')
     parser.add_argument('-normalize', type=bool, default=True, help='Do min max normalization on dataset')
-    parser.add_argument('-normalized_dir', type=str, default='normalized', help='Normalized images dir')
-    parser.add_argument('-use_normalized', type=bool, default=True, help='Use normalized images')
     parser.add_argument('-plane', type=int, default=Plane.SAGITTAL.value, help='2D plane')
     parser.add_argument('-problem', type=str, default='skull-stripping', help='segmentation problem')
 
