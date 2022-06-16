@@ -14,7 +14,7 @@ from sklearn.metrics import accuracy_score
 from torch.autograd import Variable
 
 from config.io import *
-from data.utils import get_dataloader
+from data_data.utils import get_dataloader
 from metrics.confusion_loss import confusion_loss
 from metrics.dice import dice_loss
 from models.unlearn import UNet, Segmenter, DomainPredictor

@@ -17,7 +17,7 @@ from torch.nn import functional as F
 from tqdm import *
 
 from config.io import MODEL_PATH
-from data.utils import get_dataloader
+from data_data.utils import get_dataloader
 from models.baseline import Unet
 from models.utils import dice_score
 

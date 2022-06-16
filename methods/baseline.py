@@ -10,7 +10,7 @@ from tqdm import *
 
 from config.io import MODEL_PATH
 from config.param import LAMBDA
-from data.utils import get_dataloader
+from data_data.utils import get_dataloader
 from metrics.dice import dice_score
 from models.baseline import Unet
 from models.utils import EarlyStopping, scheduler

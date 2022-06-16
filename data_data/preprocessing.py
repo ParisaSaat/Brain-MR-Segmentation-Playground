@@ -8,8 +8,8 @@ from sklearn.model_selection import train_test_split
 
 from config.io import *
 from config.param import Plane
-from data.dataset import CC359
-from data.utils import min_max_normalization
+from data_data.dataset import CC359
+from data_data.utils import min_max_normalization
 
 
 def split_data(data_dir, ratio, image_path, mask_path, mask_type):

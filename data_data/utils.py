@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
 from config.io import NPY_ROOT
-from data.dataset import BrainMRI2D
+from data_data.dataset import BrainMRI2D
 
 
 def patch_data(dataset, patch_size, max_patches):
