@@ -76,7 +76,7 @@ NORMALIZED_IMAGES_PATH = NORMALIZED_IMAGES_PATH[PROCESS_ENV]
 
 MODEL_PATH = {
     'TEST': '/home/par/PycharmProjects/Brain-MR-Segmentation-Playground/models/{model_name}.pth',
-    'PRODUCTION': '/home/parisa.saat1/Brain-MR-Segmentation-Playground/trained_models/{model_name}.pth',
+    'PRODUCTION': '/home/muhammadathar.ganaie/Brain-MR-Segmentation-Playground/trained_models/{model_name}.pth',
 }
 MODEL_PATH = MODEL_PATH[PROCESS_ENV]
 

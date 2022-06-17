@@ -69,8 +69,8 @@ def cmd_train(opt):
     discriminator.cuda()
     discriminator.train()
     vgg = VGG().cuda()
-    # uNet = torch.load(opt["UNET_PATH"]).cuda()
-    # uNet.eval()
+    uNet = torch.load(opt["UNET_PATH"]).cuda()
+    uNet.eval()
 
     vgg.eval()
 
@@ -162,12 +162,12 @@ def cmd_train(opt):
             D_optimizer.step()
             num_steps+=1
             itr+=1
-            if num_steps%1 == 0:
+            if num_steps%100 == 0:
                 tqdm.write("Gen Loss: {:.6f}".format(D_loss))
                 tqdm.write("Disc Loss: {:.6f}".format(G_loss))
 
-                writer.add_scalars('Disc loss', {'D_loss_epoch':D_loss}, itr)
-                writer.add_scalars('Gen loss', {'G_loss_epoch':G_loss}, itr)
+                writer.add_scalars('Disc loss', {'D_loss':D_loss}, itr)
+                writer.add_scalars('Gen loss', {'G_loss':G_loss}, itr)
 
         D_loss_epoch /= num_steps
         G_loss_epoch /= (num_steps * 3)

@@ -2,11 +2,14 @@ import argparse
 import shutil
 from os import listdir, makedirs
 
+import nibabel as nib
+import numpy as np
 from sklearn.model_selection import train_test_split
 
 from config.io import *
 from config.param import Plane
 from data.dataset import CC359
+from data.utils import min_max_normalization
 
 
 def split_data(data_dir, ratio, image_path, mask_path, mask_type):
@@ -55,7 +58,9 @@ def create_parser():
     parser.add_argument('-data_dir', type=str, default='imgs_train', help='data directory name')
     parser.add_argument('-num_epochs', type=int, default=5, help='number of epochs to train for')
     parser.add_argument('-test_ratio', type=int, default=0.2, help='')
-    parser.add_argument('-normalize', type=bool, default=False, help='Do min max normalization on dataset')
+    parser.add_argument('-normalize', type=bool, default=True, help='Do min max normalization on dataset')
+    parser.add_argument('-normalized_dir', type=str, default='normalized', help='Normalized images dir')
+    parser.add_argument('-use_normalized', type=bool, default=True, help='Use normalized images')
     parser.add_argument('-plane', type=int, default=Plane.SAGITTAL.value, help='2D plane')
     parser.add_argument('-problem', type=str, default='skull-stripping', help='segmentation problem')
 
@@ -68,6 +73,19 @@ def preprocess(opt):
     mask_type = 'pveseg' if opt.problem == 'wgc' else 'staple'
     img_pth = 'images_wgc' if opt.problem == 'wgc' else 'images'
     msk_pth = 'masks_wgc' if opt.problem == 'wgc' else 'masks'
+
+    if opt.normalize:
+        imgs_dir = os.path.join(data_dir, img_pth)
+        for file_path in listdir(imgs_dir):
+            if not file_path.startswith('.'):
+                file_id = file_path.split('/')[-1].split('.')[0]
+                nifti_image = nib.load(os.path.join(imgs_dir, file_path))
+                image_affine = nifti_image.affine
+                image = nifti_image.get_fdata(dtype=np.float32)
+                normalized_img = min_max_normalization(image)
+                nifti_norm_img = nib.Nifti1Image(normalized_img, affine=image_affine)
+                nib.save(nifti_norm_img, os.path.join(imgs_dir, '{}.nii.gz'.format(file_id)))
+
     slices_train_images_path = os.path.join(data_dir, 'slices/train', img_pth)
     slices_train_masks_path = os.path.join(data_dir, 'slices/train', msk_pth)
     slices_val_images_path = os.path.join(data_dir, 'slices/val', img_pth)
@@ -76,22 +94,15 @@ def preprocess(opt):
     slices_test_masks_path = os.path.join(data_dir, 'slices/test', msk_pth)
 
     train_files, val_files, test_files = split_data(data_dir, opt.test_ratio, img_pth, msk_pth, mask_type)
-    print("Data split")
     train_set = CC359(os.path.join(data_dir, 'train', img_pth), os.path.join(data_dir, 'train', msk_pth), opt.plane,
-                      train_files, normalizer=None, mask_type=mask_type)
-    print("Train set created")
+                      train_files, normalizer=min_max_normalization, mask_type=mask_type)
     val_set = CC359(os.path.join(data_dir, 'val', img_pth), os.path.join(data_dir, 'val', msk_pth), opt.plane,
-                    val_files, normalizer=None, mask_type=mask_type)
-    print("Val set created")
+                    val_files, normalizer=min_max_normalization, mask_type=mask_type)
     test_set = CC359(os.path.join(data_dir, 'test', img_pth), os.path.join(data_dir, 'test', msk_pth), opt.plane,
-                     test_files, normalizer=None, mask_type=mask_type)
-    print("Test set created")
+                     test_files, normalizer=min_max_normalization, mask_type=mask_type)
     train_set.save_slices(slices_train_images_path, slices_train_masks_path)
-    print("Train set saved")
     val_set.save_slices(slices_val_images_path, slices_val_masks_path)
-    print("Val set saved")
     test_set.save_slices(slices_test_images_path, slices_test_masks_path)
-    print("Test set saved")
 
 
 if __name__ == '__main__':
