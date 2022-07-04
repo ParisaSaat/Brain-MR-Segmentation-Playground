@@ -9,12 +9,11 @@ from sklearn.metrics import accuracy_score
 from torch.autograd import Variable
 
 from config.io import *
-#from data.utils import get_dataloader
+from data_data.utils import get_dataloader
 from metrics.confusion_loss import confusion_loss
 from metrics.dice import dice_loss
 from models.unlearn_semi import UNet, Segmenter, domain_predictor
 from models.utils import EarlyStoppingUnlearning
-from data_data.utils import get_dataloader
 
 
 def train_encoder_domain_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoch):
@@ -38,7 +37,7 @@ def train_encoder_domain_unlearn_semi(args, models, train_loaders, optimizers, c
     for batch_idx, (source_load, target_load) in enumerate(zip(source_train_dataloader, target_train_dataloader)):
         s_data, s_target, s_domain = source_load['image'], source_load['mask'], source_load['domain']
         t_data, t_target, t_domain = target_load['image'], target_load['mask'], target_load['domain']
-        n1 = np.random.randint(1, len(s_data)-1)
+        n1 = np.random.randint(1, len(s_data) - 1)
         n2 = len(s_data) - n1
 
         s_data = s_data[:n1]
@@ -59,8 +58,7 @@ def train_encoder_domain_unlearn_semi(args, models, train_loaders, optimizers, c
 
         data, target, domain_target = Variable(data), Variable(target), Variable(domain_target)
 
-
-        if list(data.size())[0] == args["batch_size"] :
+        if list(data.size())[0] == args["batch_size"]:
 
             batches += 1
 
@@ -78,7 +76,7 @@ def train_encoder_domain_unlearn_semi(args, models, train_loaders, optimizers, c
             loss_1 = criteron(op_1, target_1)
 
             loss = loss_0 + loss_1
-            regressor_loss += float(loss)/2
+            regressor_loss += float(loss) / 2
 
             output_dm = domain_predictor(features.detach())
             loss_dm = domain_criterion(output_dm, domain_target)
@@ -94,11 +92,10 @@ def train_encoder_domain_unlearn_semi(args, models, train_loaders, optimizers, c
             true_domains.append(np.array(domain_target))
             pred_domains.append(np.array(output_dm_conf))
 
-
             if batch_idx % args["log_interval"] == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\t Regressor Loss: {:.6f}'.format(
-                    epoch, (batch_idx+1) * len(data), len(source_train_dataloader.dataset),
-                           100. * (batch_idx+1) / len(source_train_dataloader), regressor_loss), flush=True)
+                    epoch, (batch_idx + 1) * len(data), len(source_train_dataloader.dataset),
+                           100. * (batch_idx + 1) / len(source_train_dataloader), regressor_loss), flush=True)
 
             del target
             del features
@@ -113,15 +110,14 @@ def train_encoder_domain_unlearn_semi(args, models, train_loaders, optimizers, c
 
     acc = accuracy_score(true_domains, pred_domains)
 
-    print('\nTraining set: Average loss: {:.4f}'.format(av_loss,  flush=True))
-    print('Training set: Average Dom loss: {:.4f}'.format(av_dom,  flush=True))
-    print('Training set: Average Acc: {:.4f}\n'.format(acc,  flush=True))
+    print('\nTraining set: Average loss: {:.4f}'.format(av_loss, flush=True))
+    print('Training set: Average Dom loss: {:.4f}'.format(av_dom, flush=True))
+    print('Training set: Average Acc: {:.4f}\n'.format(acc, flush=True))
 
     return av_loss, acc, av_dom, np.NaN
 
 
 def val_encoder_domain_unlearn_semi(args, models, val_loaders, criterions):
-
     cuda = torch.cuda.is_available()
 
     [encoder, regressor, domain_predictor] = models
@@ -171,14 +167,14 @@ def val_encoder_domain_unlearn_semi(args, models, val_loaders, criterions):
 
                 op_0 = output_pred[:n1]
                 target_0 = target[:n1]
-                loss_0= criteron(op_0, target_0)
+                loss_0 = criteron(op_0, target_0)
 
                 op_1 = output_pred[n1:]
                 target_1 = target[n1:]
                 loss_1 = criteron(op_1, target_1)
 
                 loss = loss_0 + loss_1
-                val_loss += float(loss)/2
+                val_loss += float(loss) / 2
 
                 domains = domain_predictor.forward(features)
                 domains = np.argmax(domains.detach().cpu().numpy(), axis=1)
@@ -193,17 +189,19 @@ def val_encoder_domain_unlearn_semi(args, models, val_loaders, criterions):
 
     val_acc = accuracy_score(true_domains, pred_domains)
 
-    print('\nValidation set: Average loss: {:.4f}\n'.format(val_loss,  flush=True))
-    print('Validation set: Average Acc: {:.4f}\n'.format(val_acc,  flush=True))
+    print('\nValidation set: Average loss: {:.4f}\n'.format(val_loss, flush=True))
+    print('Validation set: Average Acc: {:.4f}\n'.format(val_acc, flush=True))
 
     return val_loss, val_acc
+
 
 def train_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoch):
     cuda = torch.cuda.is_available()
 
     [encoder, regressor, domain_predictor] = models
     [optimizer, optimizer_conf, optimizer_dm] = optimizers
-    [source_train_dataloader, target_train_dataloader, source_int_train_dataloader, target_int_train_dataloader] = train_loaders
+    [source_train_dataloader, target_train_dataloader, source_int_train_dataloader,
+     target_int_train_dataloader] = train_loaders
     [criteron, conf_criterion, domain_criterion] = criterions
 
     regressor_loss = 0
@@ -218,12 +216,16 @@ def train_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoc
     pred_domains = []
 
     batches = 0
-    for batch_idx, (source_load, target_load, source_int_load, target_int_load) in enumerate(zip(source_train_dataloader, target_train_dataloader, source_int_train_dataloader, target_int_train_dataloader)):
+    for batch_idx, (source_load, target_load, source_int_load, target_int_load) in enumerate(
+            zip(source_train_dataloader, target_train_dataloader, source_int_train_dataloader,
+                target_int_train_dataloader)):
         s_data, s_target, s_domain = source_load['image'], source_load['mask'], source_load['domain']
         t_data, t_target, t_domain = target_load['image'], target_load['mask'], target_load['domain']
-        s_int_data, s_int_target, s_int_domain = source_int_load['image'], source_int_load['mask'], source_int_load['domain']
-        t_int_data, t_int_target, t_int_domain = target_int_load['image'], target_int_load['mask'], target_int_load['domain']
-        n1 = np.random.randint(1, len(s_data)-1)
+        s_int_data, s_int_target, s_int_domain = source_int_load['image'], source_int_load['mask'], source_int_load[
+            'domain']
+        t_int_data, t_int_target, t_int_domain = target_int_load['image'], target_int_load['mask'], target_int_load[
+            'domain']
+        n1 = np.random.randint(1, len(s_data) - 1)
         n2 = len(s_data) - n1
 
         s_data = s_data[:n1]
@@ -250,10 +252,11 @@ def train_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoc
         if cuda:
             data, target, domain_target, int_data, int_domain = data.cuda(), target.cuda(), domain_target.cuda(), int_data.cuda(), int_domain.cuda()
 
-        data, target, domain_target, int_data, int_domain = Variable(data), Variable(target), Variable(domain_target), Variable(int_data), Variable(int_domain)
+        data, target, domain_target, int_data, int_domain = Variable(data), Variable(target), Variable(
+            domain_target), Variable(int_data), Variable(int_domain)
 
-        if list(data.size())[0] == args["batch_size"] :
-            if list(int_domain.size())[0] == args["batch_size"] :
+        if list(data.size())[0] == args["batch_size"]:
+            if list(int_domain.size())[0] == args["batch_size"]:
 
                 batches += 1
 
@@ -270,7 +273,7 @@ def train_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoc
                 target_1 = target[n1:]
                 loss_1 = criteron(op_1, target_1)
 
-                loss_total = (loss_0 + loss_1)/2
+                loss_total = (loss_0 + loss_1) / 2
                 loss_total.backward()
                 optimizer.step()
 
@@ -300,8 +303,8 @@ def train_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoc
 
                 if batch_idx % args["log_interval"] == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                        epoch, (batch_idx+1) * len(data), len(source_train_dataloader.dataset),
-                               100. * (batch_idx+1) / len(source_train_dataloader), loss_total.item()), flush=True)
+                        epoch, (batch_idx + 1) * len(data), len(source_train_dataloader.dataset),
+                               100. * (batch_idx + 1) / len(source_train_dataloader), loss_total.item()), flush=True)
                     print('\t \t Confusion loss = ', loss_conf.item())
                     print('\t \t Domain Loss = ', loss_dm.item(), flush=True)
                 del target
@@ -319,17 +322,16 @@ def train_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoc
 
     acc = accuracy_score(true_domains, pred_domains)
 
-    print('Training set: Average loss: {:.4f}'.format(av_loss,  flush=True))
-    print('Training set: Average Conf loss: {:.4f}'.format(av_conf,  flush=True))
-    print('Training set: Average Dom loss: {:.4f}'.format(av_dom,  flush=True))
+    print('Training set: Average loss: {:.4f}'.format(av_loss, flush=True))
+    print('Training set: Average Conf loss: {:.4f}'.format(av_conf, flush=True))
+    print('Training set: Average Dom loss: {:.4f}'.format(av_dom, flush=True))
 
-    print('Training set: Average Acc: {:.4f}\n'.format(acc,  flush=True))
+    print('Training set: Average Acc: {:.4f}\n'.format(acc, flush=True))
 
     return av_loss, acc, av_dom, av_conf
 
 
 def val_unlearn_semi(args, models, val_loaders, criterions):
-
     cuda = torch.cuda.is_available()
 
     [encoder, regressor, domain_predictor] = models
@@ -348,11 +350,15 @@ def val_unlearn_semi(args, models, val_loaders, criterions):
 
     batches = 0
     with torch.no_grad():
-        for batch_idx, (source_load, target_load, source_int_load, target_int_load) in enumerate(zip(source_val_dataloader, target_val_dataloader, source_int_val_dataloader, target_int_val_dataloader)):
+        for batch_idx, (source_load, target_load, source_int_load, target_int_load) in enumerate(
+                zip(source_val_dataloader, target_val_dataloader, source_int_val_dataloader,
+                    target_int_val_dataloader)):
             s_data, s_target, s_domain = source_load['image'], source_load['mask'], source_load['domain']
             t_data, t_target, t_domain = target_load['image'], target_load['mask'], target_load['domain']
-            s_int_data, s_int_target, s_int_domain = source_int_load['image'], source_int_load['mask'], source_int_load['domain']
-            t_int_data, t_int_target, t_int_domain = target_int_load['image'], target_int_load['mask'], target_int_load['domain']
+            s_int_data, s_int_target, s_int_domain = source_int_load['image'], source_int_load['mask'], source_int_load[
+                'domain']
+            t_int_data, t_int_target, t_int_domain = target_int_load['image'], target_int_load['mask'], target_int_load[
+                'domain']
             n1 = np.random.randint(1, len(s_data) - 1)
             n2 = len(s_data) - n1
 
@@ -380,7 +386,8 @@ def val_unlearn_semi(args, models, val_loaders, criterions):
             if cuda:
                 data, target, domain_target, int_data, int_domain = data.cuda(), target.cuda(), domain_target.cuda(), int_data.cuda(), int_domain.cuda()
 
-            data, target, domain_target, int_data, int_domain = Variable(data), Variable(target), Variable(domain_target), Variable(int_data), Variable(int_domain)
+            data, target, domain_target, int_data, int_domain = Variable(data), Variable(target), Variable(
+                domain_target), Variable(int_data), Variable(int_domain)
 
             if list(data.size())[0] == args["batch_size"]:
                 if list(int_data.size())[0] == args["batch_size"]:
@@ -397,7 +404,7 @@ def val_unlearn_semi(args, models, val_loaders, criterions):
                     loss_1 = criteron(op_1, target_1)
 
                     loss_total = loss_0 + loss_1
-                    val_loss += float(loss_total)/2
+                    val_loss += float(loss_total) / 2
 
                     new_features = encoder(int_data.unsqueeze(1))
                     domains = domain_predictor.forward(new_features)
@@ -413,8 +420,8 @@ def val_unlearn_semi(args, models, val_loaders, criterions):
 
     acc = accuracy_score(true_domains, pred_domains)
 
-    print('\nValidation set: Average loss: {:.4f}\n'.format(val_loss,  flush=True))
-    print('Validation set: Average Acc: {:.4f}\n'.format(acc,  flush=True))
+    print('\nValidation set: Average loss: {:.4f}\n'.format(val_loss, flush=True))
+    print('Validation set: Average Acc: {:.4f}\n'.format(acc, flush=True))
 
     return val_loss, acc
 
@@ -428,6 +435,8 @@ def cmd_train(ctx):
     msk_pth = 'masks_wgc' if problem == 'wgc' else 'masks'
     batch_size = ctx["batch_size"]
     patience = ctx["patience"]
+    lr_s1 = ctx["lr_s1"]
+    lr_un = ctx["lr_un"]
     # out_dir = ctx["out_dir"]
     # os.makedirs(out_dir, exist_ok=True)
     # num_samples = 10
@@ -447,14 +456,12 @@ def cmd_train(ctx):
                                            shuffle=False, drop_last=False, domain=target_domain)
 
     target_train_dataloader_int = get_dataloader(os.path.join(ctx["target_train_dir"], img_pth),
-                                             os.path.join(ctx["target_train_dir"], msk_pth), batch_size, None,
-                                             shuffle=True, domain=target_domain)
+                                                 os.path.join(ctx["target_train_dir"], msk_pth), batch_size, None,
+                                                 shuffle=True, domain=target_domain)
 
     target_val_dataloader_int = get_dataloader(os.path.join(ctx["target_val_dir"], img_pth),
-                                           os.path.join(ctx["target_val_dir"], msk_pth), batch_size, None,
-                                           shuffle=False, drop_last=False, domain=target_domain)
-
-
+                                               os.path.join(ctx["target_val_dir"], msk_pth), batch_size, None,
+                                               shuffle=False, drop_last=False, domain=target_domain)
 
     # Load the model
     unet = UNet()
@@ -479,10 +486,10 @@ def cmd_train(ctx):
     conf_criterion.cuda()
 
     optimizer_step1 = optim.Adam(
-        list(unet.parameters()) + list(segmenter.parameters()) + list(domain_pred.parameters()), lr=ctx["learning_rate"])
-    optimizer = optim.Adam(list(unet.parameters()) + list(segmenter.parameters()), lr=1e-4)
-    optimizer_conf = optim.Adam(list(unet.parameters()), lr=1e-4)
-    optimizer_dm = optim.Adam(list(domain_pred.parameters()), lr=1e-4)  # Lower learning rate for the unlearning bit
+        list(unet.parameters()) + list(segmenter.parameters()) + list(domain_pred.parameters()), lr=lr_s1)
+    optimizer = optim.Adam(list(unet.parameters()) + list(segmenter.parameters()), lr=lr_s1)
+    optimizer_conf = optim.Adam(list(unet.parameters()), lr=lr_s1)
+    optimizer_dm = optim.Adam(list(domain_pred.parameters()), lr=lr_s1)  # Lower learning rate for the unlearning bit
 
     # Initalise the early stopping
     early_stopping = EarlyStoppingUnlearning(patience, verbose=False)
@@ -491,7 +498,8 @@ def cmd_train(ctx):
 
     models = [unet, segmenter, domain_pred]
     optimizers = [optimizer, optimizer_conf, optimizer_dm]
-    train_dataloaders = [source_train_dataloader, target_train_dataloader, source_train_dataloader, target_train_dataloader_int]
+    train_dataloaders = [source_train_dataloader, target_train_dataloader, source_train_dataloader,
+                         target_train_dataloader_int]
     val_dataloaders = [source_val_dataloader, target_val_dataloader, source_val_dataloader, target_val_dataloader_int]
     criterions = [criteron, conf_criterion, domain_criterion]
 
@@ -519,22 +527,24 @@ def cmd_train(ctx):
                 torch.save(domain_pred.state_dict(), PRETRAIN_DOMAIN)
 
         else:
-            optimizer = optim.Adam(list(unet.parameters()) + list(segmenter.parameters()), lr=1e-6)
-            optimizer_conf = optim.Adam(list(unet.parameters()), lr=1e-6)
-            optimizer_dm = optim.Adam(list(domain_pred.parameters()), lr=1e-6)
+            optimizer = optim.Adam(list(unet.parameters()) + list(segmenter.parameters()), lr=lr_un)
+            optimizer_conf = optim.Adam(list(unet.parameters()), lr=lr_un)
+            optimizer_dm = optim.Adam(list(domain_pred.parameters()), lr=lr_un)
             optimizers = [optimizer, optimizer_conf, optimizer_dm]
 
             print('Unlearning')
             print('Epoch ', epoch, '/', epochs, flush=True)
             torch.cuda.empty_cache()  # Clear memory cache
-            loss, acc, dm_loss, conf_loss = train_unlearn_semi(ctx, models, train_dataloaders, optimizers, criterions, epoch)
+            loss, acc, dm_loss, conf_loss = train_unlearn_semi(ctx, models, train_dataloaders, optimizers, criterions,
+                                                               epoch)
             val_loss, val_acc = val_unlearn_semi(ctx, models, val_dataloaders, criterions)
 
             loss_store.append([loss, val_loss, acc, val_acc, dm_loss, conf_loss])
             np.save(LOSS_PATH, np.array(loss_store))
 
             # Decide whether the model should stop training or not
-            early_stopping(val_loss, models , epoch, optimizer, loss, [CHK_PATH_UNET, CHK_PATH_SEGMENTER, CHK_PATH_DOMAIN])
+            early_stopping(val_loss, models, epoch, optimizer, loss,
+                           [CHK_PATH_UNET, CHK_PATH_SEGMENTER, CHK_PATH_DOMAIN])
             if early_stopping.early_stop:
                 loss_store = np.array(loss_store)
                 np.save(LOSS_PATH, loss_store)
