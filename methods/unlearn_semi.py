@@ -437,6 +437,7 @@ def cmd_train(ctx):
     patience = ctx["patience"]
     lr_s1 = ctx["lr_s1"]
     lr_un = ctx["lr_un"]
+    experiment_name = ctx["experiment_name"]
     # out_dir = ctx["out_dir"]
     # os.makedirs(out_dir, exist_ok=True)
     # num_samples = 10
@@ -558,6 +559,9 @@ def cmd_train(ctx):
                 torch.save(unet.state_dict(), PATH_UNET)
                 torch.save(segmenter.state_dict(), PATH_SEGMENTER)
                 torch.save(domain_pred.state_dict(), PATH_DOMAIN)
+                torch.save(unet, MODEL_PATH.format(model_name='{}_unet'.format(experiment_name)))
+                torch.save(segmenter, MODEL_PATH.format(model_name='{}_segmenter'.format(experiment_name)))
+                torch.save(domain_pred, MODEL_PATH.format(model_name='{}_domain'.format(experiment_name)))
 
                 loss_store = np.array(loss_store)
                 np.save(LOSS_PATH, loss_store)
