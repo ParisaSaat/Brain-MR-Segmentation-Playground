@@ -1,0 +1,26 @@
+{
+    "os": "Linux-4.18.0-348.23.1.el8_5.x86_64-x86_64-with-glibc2.17",
+    "python": "3.8.13",
+    "heartbeatAt": "2022-07-07T23:27:44.317145",
+    "startedAt": "2022-07-07T23:27:42.155397",
+    "docker": null,
+    "gpu": "Tesla V100-PCIE-16GB",
+    "gpu_count": 1,
+    "cpu_count": 80,
+    "cuda": null,
+    "args": [
+        "/home/muhammadyusuf.hassan/Brain-MR-Segmentation-Playground/experiments/train_un_si3_adapt_ge3.json"
+    ],
+    "state": "running",
+    "program": "methods/runner.py",
+    "codePath": "methods/runner.py",
+    "git": {
+        "remote": "https://github.com/ParisaSaat/Brain-MR-Segmentation-Playground.git",
+        "commit": "9e0a824dfb6a442e27a42da8265e04f7d1112a80"
+    },
+    "email": "md.hassan@iitgn.ac.in",
+    "root": "/home/muhammadyusuf.hassan/Brain-MR-Segmentation-Playground",
+    "host": "fg12",
+    "username": "muhammadyusuf.hassan",
+    "executable": "/home/muhammadyusuf.hassan/miniconda3/envs/DA/bin/python"
+}

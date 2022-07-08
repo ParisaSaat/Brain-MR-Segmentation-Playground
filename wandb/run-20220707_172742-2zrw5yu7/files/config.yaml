@@ -1,0 +1,40 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.12.18
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.8.13
+    start_time: 1657236462
+    t:
+      1:
+      - 1
+      - 5
+      - 53
+      - 55
+      3:
+      - 3
+      - 14
+      - 16
+      4: 3.8.13
+      5: 0.12.18
+      8:
+      - 5
+alpha:
+  desc: null
+  value: 30
+beta:
+  desc: null
+  value: 30
+problem:
+  desc: null
+  value: ss
+source:
+  desc: null
+  value: seimens3
+target:
+  desc: null
+  value: ge3

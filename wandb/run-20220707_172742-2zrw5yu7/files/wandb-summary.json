@@ -1,0 +1,1 @@
+{"epoch": 35, "Train stage 1: Dice loss": -0.6328331232070923, "Train stage 1: Disc loss": 0.0021292923483997583, "Train stage 1: Accuracy": 0.9991485738612176, "Val stage 1: Dice loss": -0.5979179739952087, "Val stage 1: Accuracy": 0.9991666666666666, "_timestamp": 1657241578, "_runtime": 5116, "_step": 35}

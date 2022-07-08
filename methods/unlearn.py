@@ -1,13 +1,9 @@
-# Nicola Dinsdale 2020
-# Unlearning main for the segmentation model
-########################################################################################################################
-########################################################################################################################
-# Create an args class
 import os.path
 import sys
 
 import numpy as np
 import torch
+import wandb
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.metrics import accuracy_score
@@ -19,7 +15,6 @@ from metrics.confusion_loss import confusion_loss
 from metrics.dice import dice_loss
 from models.unlearn import UNet, Segmenter, DomainPredictor
 from models.utils import EarlyStoppingUnlearning
-
 
 def train_encoder_unlearn(args, models, train_loaders, optimizers, criterions, epoch):
     cuda = torch.cuda.is_available()
@@ -55,6 +50,7 @@ def train_encoder_unlearn(args, models, train_loaders, optimizers, criterions, e
             t_target = t_target[:n2]
             t_domain = t_domain[:n2]
 
+            # concat both domain images, one on top of the other. output should also be 2 segmentation maps?
             data = torch.cat((s_data, t_data), 0)
             target = torch.cat((s_target, t_target), 0)
             domain_target = torch.cat((s_domain, t_domain), 0)
@@ -280,11 +276,13 @@ def train_unlearn(args, models, train_loaders, optimizers, criterions, epoch):
                 loss_1 = criteron(op_1, target_1)
 
                 loss_total = loss_0 + loss_1
-                loss_total.backward(retain_graph=True)
-                # optimizer.step()
-                optimizer.zero_grad()
+                loss_total.backward(retain_graph=False)
+                optimizer.step()
+                # optimizer.zero_grad()
+
                 # Now update just the domain classifier
                 optimizer_dm.zero_grad()
+                features = encoder(data)
                 output_dm = domain_predictor(features.detach())
 
                 loss_dm = domain_criterion(output_dm, domain_target)
@@ -297,7 +295,7 @@ def train_unlearn(args, models, train_loaders, optimizers, criterions, epoch):
                 loss_conf = args["beta"] * conf_criterion(output_dm_conf, domain_target)
                 loss_conf.backward(retain_graph=False)
                 optimizer_conf.step()
-
+                
                 regressor_loss += loss_total
                 domain_loss += loss_dm
                 conf_loss += loss_conf
@@ -384,10 +382,10 @@ def val_unlearn(args, models, val_loaders, criterions):
 
                 if list(data.size())[0] == args["batch_size"]:
                     batches += 1
-
+                    data = torch.unsqueeze(data, 1)
                     features = encoder(data)
                     output_pred = regressor(features)
-                    print('output_pred:', output_pred.shape)
+                    # print('output_pred:', output_pred.shape)
 
                     op_0 = output_pred[:n1]
                     target_0 = target[:n1]
@@ -430,6 +428,8 @@ def cmd_train(ctx):
     batch_size = ctx["batch_size"]
     out_dir = ctx["out_dir"]
     os.makedirs(out_dir, exist_ok=True)
+    for f in os.listdir(out_dir):
+        os.remove(out_dir + f) 
     source_train_dataloader = get_dataloader(os.path.join(ctx["source_train_dir"], img_pth),
                                              os.path.join(ctx["source_train_dir"], msk_pth), batch_size,
                                              None, domain=source_domain)
@@ -444,6 +444,7 @@ def cmd_train(ctx):
     target_val_dataloader = get_dataloader(os.path.join(ctx["target_val_dir"], img_pth),
                                            os.path.join(ctx["target_val_dir"], msk_pth), batch_size, None,
                                            shuffle=False, drop_last=False, domain=target_domain)
+
 
     # Load the model
     u_net = UNet()
@@ -476,60 +477,87 @@ def cmd_train(ctx):
     # Initalise the early stopping
     early_stopping = EarlyStoppingUnlearning(ctx["patience"], verbose=False)
 
-    loss_store = []
+    if ctx["resume"]:
+        checkpoint = torch.load(ctx["resume_path"])        
+        epoch_reached = checkpoint["epoch"]
+        u_net.load_state_dict(checkpoint['u_net'])
+        segmenter.load_state_dict(checkpoint['segmenter'])
+        domain_pred.load_state_dict(checkpoint['domain_pred'])
+        optimizer_step1.load_state_dict(checkpoint['optimizer_step1'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        optimizer_conf.load_state_dict(checkpoint['optimizer_conf'])
+        optimizer_dm.load_state_dict(checkpoint['optimizer_dm'])
+
+        print("Loaded checkpoint at epoch {}".format(epoch_reached))
+        wandb_id = checkpoint["wandb_id"]
+        wandb.init(project="Domain Unlearn Supervised", entity="autoda", resume="allow", id=wandb_id,
+                    config={"alpha": ctx["alpha"], "beta": ctx["beta"], "source": ctx["source"], "target": ctx["target"], "problem": ctx["problem"]}
+                    )
+
+    else:
+        wandb_id = wandb.util.generate_id()
+        wandb.init(project="Domain Unlearn Supervised", entity="autoda", resume="allow", id=wandb_id,
+                    config={"alpha": ctx["alpha"], "beta": ctx["beta"], "source": ctx["source"], "target": ctx["target"], "problem": ctx["problem"]}
+                    )
+        epoch_reached = 0
 
     models = [u_net, segmenter, domain_pred]
-    optimizers = [optimizer, optimizer_conf, optimizer_dm]
+    optimizers_stage2 = [optimizer, optimizer_conf, optimizer_dm]
     train_dataloaders = [source_train_dataloader, target_train_dataloader]
     val_dataloaders = [source_val_dataloader, target_val_dataloader]
     criterions = [criterion, conf_criterion, domain_criterion]
     epochs = ctx["epochs"]
-    epoch_reached = ctx["epoch_reached"]
     epoch_stage_1 = ctx["epoch_stage_1"]
     for epoch in range(epoch_reached, epochs + 1):
         if epoch < epoch_stage_1:
-            print('Training Main Encoder')
+            print('Training Main Encoder') # pretraining the segmentation model
             print('Epoch ', epoch, '/', epochs, flush=True)
-            optimizers = [optimizer_step1]
-            loss, acc, dm_loss, conf_loss = train_encoder_unlearn(ctx, models, train_dataloaders, optimizers,
+            optimizers_stage1 = [optimizer_step1]
+            loss, acc, dm_loss, conf_loss = train_encoder_unlearn(ctx, models, train_dataloaders, optimizers_stage1,
                                                                   criterions, epoch)
             loss = loss.detach().cpu().clone().numpy()
             dm_loss = dm_loss.detach().cpu().clone().numpy()
             torch.cuda.empty_cache()  # Clear memory cache
             val_loss, val_acc = val_encoder_unlearn(ctx, models, val_dataloaders, criterions)
             val_loss = val_loss.detach().cpu().clone().numpy()
-            loss_store.append([loss, val_loss, acc, val_acc, dm_loss, conf_loss])
 
             # Save the losses each epoch so we can plot them live
-            np.save(os.path.join(out_dir, LOSS_PATH), np.array(loss_store))
+            wandb.log({'epoch': epoch, 'Train stage 1: Dice loss': loss,
+            'Train stage 1: Disc loss': dm_loss, 'Train stage 1: Accuracy': acc, 
+            'Val stage 1: Dice loss': val_loss, 'Val stage 1: Accuracy': val_acc})            
 
             if epoch == epoch_stage_1 - 1 or epoch % ctx["checkpoint"]:
-                torch.save(u_net.state_dict(), os.path.join(out_dir, PRETRAIN_UNET))
-                torch.save(segmenter.state_dict(), os.path.join(out_dir, PRETRAIN_SEGMENTER))
-                torch.save(domain_pred.state_dict(), os.path.join(out_dir, PRETRAIN_DOMAIN))
+                torch.save({
+                            'epoch': epoch,
+                            'u_net': u_net.state_dict(),
+                            'segmenter': segmenter.state_dict(),
+                            'domain_pred': domain_pred.state_dict(),
+                            'optimizer_step1': optimizer_step1.state_dict(),
+                            'optimizer': optimizer.state_dict(),
+                            'optimizer_conf': optimizer_conf.state_dict(),
+                            'optimizer_dm': optimizer_dm.state_dict(),
+                            'wandb_id': wandb_id
+                            }, out_dir + '/checkpoint_epoch' + str(epoch) + '.pth')
+                wandb.save(out_dir + '/checkpoint_epoch' + str(epoch) + '.pth')
 
         else:
-            optimizer = optim.Adam(list(u_net.parameters()) + list(segmenter.parameters()), lr=1e-5)
-            optimizer_conf = optim.Adam(list(u_net.parameters()), lr=1e-6)
-            optimizer_dm = optim.Adam(list(domain_pred.parameters()), lr=1e-6)
-            optimizers = [optimizer, optimizer_conf, optimizer_dm]
-
-            print('Unlearning')
+            print('Unlearning') # unlearning the domains on the pretrained model
             print('Epoch ', epoch, '/', epochs, flush=True)
-            loss, acc, dm_loss, conf_loss = train_unlearn(ctx, models, train_dataloaders, optimizers, criterions,
+            loss, acc, dm_loss, conf_loss = train_unlearn(ctx, models, train_dataloaders, optimizers_stage2, criterions,
                                                           epoch)
+
             torch.cuda.empty_cache()  # Clear memory cache
             val_loss, val_acc = val_unlearn(ctx, models, val_dataloaders, criterions)
 
-            loss_store.append([loss, val_loss, acc, val_acc, dm_loss, conf_loss])
-            np.save(os.path.join(out_dir, LOSS_PATH), np.array(loss_store))
+            wandb.log({'epoch': epoch, 'Train stage 2: Dice loss': loss,
+            'Train stage 2: Disc loss': dm_loss, 'Train stage 2: Accuracy': acc, 
+            'Train stage 2: Conf loss': conf_loss, 'Val stage 2: Dice loss': val_loss,
+            'Val stage 2: Accuracy': val_acc})            
 
             # Decide whether the model should stop training or not
-            early_stopping(val_loss, models, epoch, optimizer, loss,
-                           [CHK_PATH_UNET, CHK_PATH_SEGMENTER, CHK_PATH_DOMAIN])
+            early_stopping(val_loss, models, epoch, optimizers_stage2, loss,
+                           [CHK_PATH_UNET, CHK_PATH_SEGMENTER, CHK_PATH_DOMAIN], out_dir, wandb_id)
             if early_stopping.early_stop:
-                loss_store = np.array(loss_store)
-                np.save(os.path.join(out_dir, LOSS_PATH), loss_store)
                 sys.exit('Patience Reached - Early Stopping Activated')
 
             if epoch == epochs:
@@ -537,11 +565,17 @@ def cmd_train(ctx):
                 print('Saving the model', flush=True)
 
                 # Save the model in such a way that we can continue training later
-                torch.save(u_net.state_dict(), os.path.join(out_dir, PATH_UNET))
-                torch.save(segmenter.state_dict(), os.path.join(out_dir, PATH_SEGMENTER))
-                torch.save(domain_pred.state_dict(), os.path.join(out_dir, PATH_DOMAIN))
-
-                loss_store = np.array(loss_store)
-                np.save(os.path.join(out_dir, LOSS_PATH), loss_store)
+                torch.save({
+                            'epoch': epoch,
+                            'u_net': u_net.state_dict(),
+                            'segmenter': segmenter.state_dict(),
+                            'domain_pred': domain_pred.state_dict(),
+                            'optimizer_step1': optimizer_step1.state_dict(),
+                            'optimizer': optimizer.state_dict(),
+                            'optimizer_conf': optimizer_conf.state_dict(),
+                            'optimizer_dm': optimizer_dm.state_dict(),
+                            'wandb_id': wandb_id
+                            }, out_dir + '/checkpoint_epoch' + str(epoch) + '.pth')
+                wandb.save(out_dir + '/checkpoint_epoch' + str(epoch) + '.pth')
 
             torch.cuda.empty_cache()  # Clear memory cache

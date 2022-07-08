@@ -193,7 +193,7 @@ def cmd_train(opt):
 
         end_time = time.time()
         total_time = end_time - start_time
-        medgan_val(target_validation_loader, source_validation_loader, generator, uNet, epoch, writer, vgg)
+        medgan_val(target_validation_loader, source_validation_loader, generator, uNet, epoch, writer)
         tqdm.write("Epoch {} took {:.2f} seconds.".format(epoch, total_time))
         # if early_stopping:
         #     break

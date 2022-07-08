@@ -1,5 +1,5 @@
 import numpy as np
-import torch
+import torch, wandb
 import torch.nn as nn
 
 from metrics.dice import dice_score
@@ -115,12 +115,12 @@ class EarlyStoppingUnlearning:
         self.early_stop = False
         self.val_loss_min = np.Inf
 
-    def __call__(self, val_loss, model, epoch, optimizer, loss, PTH):
+    def __call__(self, val_loss, model, epoch, optimizer, loss, PTH, out_dir, wandb_id):
         score = -val_loss
 
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, epoch, optimizer, loss, PTH)
+            self.save_checkpoint(val_loss, model, epoch, optimizer, loss, PTH, out_dir, wandb_id)
         elif score < self.best_score:
             self.counter += 1
             print('Early Stopping Counter: ', self.counter, '/', self.patience)
@@ -128,21 +128,33 @@ class EarlyStoppingUnlearning:
                 self.early_stop = True
         else:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, epoch, optimizer, loss, PTH)
+            self.save_checkpoint(val_loss, model, epoch, optimizer, loss, PTH, out_dir, wandb_id)
             self.counter = 0
 
-    def save_checkpoint(self, val_loss, models, epoch, optimizer, loss, PTHS):
+    def save_checkpoint(self, val_loss, models, epoch, optimizer, loss, PTHS, out_dir, wandb_id):
         # Saves the model when the validation loss decreases
         if self.verbose:
             print('Validation loss decreased: ', self.val_loss_min, ' --> ', val_loss, 'Saving model ...')
         [encoder, regressor, domain_predictor] = models
-        [PATH_ENCODER, PATH_REGRESSOR, PATH_DOMAIN] = PTHS
-        if PATH_ENCODER:
-            torch.save(encoder.state_dict(), PATH_ENCODER)
-        if PATH_REGRESSOR:
-            torch.save(regressor.state_dict(), PATH_REGRESSOR)
-        if PATH_DOMAIN:
-            torch.save(domain_predictor.state_dict(), PATH_DOMAIN)
+        torch.save({
+                    'epoch': epoch,
+                    'unet': encoder.state_dict(),
+                    'segmenter': regressor.state_dict(),
+                    'domain_pred': domain_predictor.state_dict(),
+                    # 'optimizer_step1': optimizer_step1.state_dict(),
+                    'optimizer': optimizer[0].state_dict(),
+                    'optimizer_conf': optimizer[1].state_dict(),
+                    'optimizer_dm': optimizer[2].state_dict(),
+                    'wandb_id': wandb_id,
+                    }, out_dir + '/checkpoint_best_val_epoch' + str(epoch) + '.pth')
+        wandb.save(out_dir + '/checkpoint_best_val_epoch' + str(epoch) + '.pth')
+        # [PATH_ENCODER, PATH_REGRESSOR, PATH_DOMAIN] = PTHS
+        # if PATH_ENCODER:
+        #     torch.save(encoder.state_dict(), PATH_ENCODER)
+        # if PATH_REGRESSOR:
+        #     torch.save(regressor.state_dict(), PATH_REGRESSOR)
+        # if PATH_DOMAIN:
+        #     torch.save(domain_predictor.state_dict(), PATH_DOMAIN)
 
 
 class Args:

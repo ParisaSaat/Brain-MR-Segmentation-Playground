@@ -3,10 +3,10 @@ import json
 import sys
 
 import torch
-sys.path.append('/home/muhammadathar.ganaie/Brain-MR-Segmentation-Playground')
+sys.path.append('/home/muhammadyusuf.hassan/Brain-MR-Segmentation-Playground')
 
-def run_main(json_ctx='/home/muhammadathar.ganaie/Brain-MR-Segmentation-Playground/experiments/train_medgan_si3.json'):
-# def run_main(json_ctx=None):
+# def run_main(json_ctx=''):
+def run_main(json_ctx=None):
     
     if not json_ctx and len(sys.argv) <= 1:
         print("\nNo config file is specified.\n")
