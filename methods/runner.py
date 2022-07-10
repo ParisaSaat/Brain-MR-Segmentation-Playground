@@ -1,7 +1,7 @@
 import importlib
 import json
 import sys
-
+import yaml
 import torch
 sys.path.append('/home/muhammadyusuf.hassan/Brain-MR-Segmentation-Playground')
 
@@ -16,8 +16,12 @@ def run_main(json_ctx=None):
             ctx = json.load(f)
     else:
         try:
-            with open(sys.argv[1], "r") as fhandle:
-                ctx = json.load(fhandle)
+            if sys.argv[1][-5:] == '.json':
+                with open(sys.argv[1], "r") as fhandle:
+                    ctx = json.load(fhandle)
+            elif sys.argv[1][-5:] == '.yaml':
+                with open(sys.argv[1], "r") as fhandle:
+                    ctx = yaml.safe_load(fhandle)
         except FileNotFoundError:
             print("\nFile {} not found !\n".format(sys.argv[1]))
             return
