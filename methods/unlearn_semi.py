@@ -531,7 +531,8 @@ def cmd_train(ctx):
             print('Unlearning')
             print('Epoch ', epoch, '/', epochs, flush=True)
             torch.cuda.empty_cache()  # Clear memory cache
-            loss, acc, dm_loss, conf_loss = train_unlearn_semi(ctx, models, train_dataloaders, optimizers_un, criterions,
+            loss, acc, dm_loss, conf_loss = train_unlearn_semi(ctx, models, train_dataloaders, optimizers_un,
+                                                               criterions,
                                                                epoch)
             val_loss, val_acc = val_unlearn_semi(ctx, models, val_dataloaders, criterions)
 
