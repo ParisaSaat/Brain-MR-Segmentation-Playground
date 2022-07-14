@@ -498,7 +498,7 @@ def cmd_train(ctx):
     loss_store = []
 
     models = [unet, segmenter, domain_pred]
-    optimizers = [optimizer, optimizer_conf, optimizer_dm]
+    optimizers_un = [optimizer, optimizer_conf, optimizer_dm]
     train_dataloaders = [source_train_dataloader, target_train_dataloader, source_train_dataloader,
                          target_train_dataloader_int]
     val_dataloaders = [source_val_dataloader, target_val_dataloader, source_val_dataloader, target_val_dataloader_int]
@@ -512,9 +512,9 @@ def cmd_train(ctx):
         if epoch < epoch_stage_1:
             print('Training Main Encoder')
             print('Epoch ', epoch, '/', epochs, flush=True)
-            optimizers = [optimizer_step1]
+            optimizers_stage1 = [optimizer_step1]
             loss, acc, dm_loss, conf_loss = train_encoder_domain_unlearn_semi(ctx, models, train_dataloaders,
-                                                                              optimizers, criterions, epoch)
+                                                                              optimizers_stage1, criterions, epoch)
             torch.cuda.empty_cache()  # Clear memory cache
             val_loss, val_acc = val_encoder_domain_unlearn_semi(ctx, models, val_dataloaders, criterions)
             loss_store.append([loss, val_loss, acc, val_acc, dm_loss, conf_loss])
@@ -528,15 +528,10 @@ def cmd_train(ctx):
                 torch.save(domain_pred.state_dict(), PRETRAIN_DOMAIN)
 
         else:
-            optimizer = optim.Adam(list(unet.parameters()) + list(segmenter.parameters()), lr=lr_un)
-            optimizer_conf = optim.Adam(list(unet.parameters()), lr=lr_un)
-            optimizer_dm = optim.Adam(list(domain_pred.parameters()), lr=lr_un)
-            optimizers = [optimizer, optimizer_conf, optimizer_dm]
-
             print('Unlearning')
             print('Epoch ', epoch, '/', epochs, flush=True)
             torch.cuda.empty_cache()  # Clear memory cache
-            loss, acc, dm_loss, conf_loss = train_unlearn_semi(ctx, models, train_dataloaders, optimizers, criterions,
+            loss, acc, dm_loss, conf_loss = train_unlearn_semi(ctx, models, train_dataloaders, optimizers_un, criterions,
                                                                epoch)
             val_loss, val_acc = val_unlearn_semi(ctx, models, val_dataloaders, criterions)
 
@@ -544,11 +539,15 @@ def cmd_train(ctx):
             np.save(LOSS_PATH, np.array(loss_store))
 
             # Decide whether the model should stop training or not
-            early_stopping(val_loss, models, epoch, optimizer, loss,
+            early_stopping(val_loss, models, epoch, optimizers_un, loss,
                            [CHK_PATH_UNET, CHK_PATH_SEGMENTER, CHK_PATH_DOMAIN])
+
             if early_stopping.early_stop:
                 loss_store = np.array(loss_store)
                 np.save(LOSS_PATH, loss_store)
+                torch.save(unet, MODEL_PATH.format(model_name='{}_unet'.format(experiment_name)))
+                torch.save(segmenter, MODEL_PATH.format(model_name='{}_segmenter'.format(experiment_name)))
+                torch.save(domain_pred, MODEL_PATH.format(model_name='{}_domain'.format(experiment_name)))
                 sys.exit('Patience Reached - Early Stopping Activated')
 
             if epoch == epochs:
