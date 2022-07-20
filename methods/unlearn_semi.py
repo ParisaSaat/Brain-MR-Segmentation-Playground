@@ -326,6 +326,7 @@ def train_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoc
                     loss_1 = criteron(op_1, target_1)
 
                 loss_total = (loss_0 + loss_1) / 2
+                loss_total = Variable(loss_total, requires_grad=True)
                 loss_total.backward()
                 optimizer.step()
 
