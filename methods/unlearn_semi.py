@@ -16,7 +16,7 @@ from models.unlearn_semi import UNet, Segmenter, domain_predictor
 from models.utils import EarlyStoppingUnlearning
 
 
-def train_encoder_domain_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoch):
+def train_encoder_domain_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoch, problem):
     cuda = torch.cuda.is_available()
 
     [encoder, regressor, domain_predictor] = models
@@ -69,11 +69,27 @@ def train_encoder_domain_unlearn_semi(args, models, train_loaders, optimizers, c
 
             op_0 = output_pred[:n1]
             target_0 = target[:n1]
-            loss_0 = criteron(op_0, target_0)
 
             op_1 = output_pred[n1:]
             target_1 = target[n1:]
-            loss_1 = criteron(op_1, target_1)
+
+            if problem == 'wgc':
+                one_hot_mask_0 = torch.nn.functional.one_hot(target_0.long(), num_classes=4).transpose(1, -1).squeeze(
+                    -1)
+                target_0 = one_hot_mask_0.cuda().float()
+                loss_0 = 0
+                one_hot_mask_1 = torch.nn.functional.one_hot(target_1.long(), num_classes=4).transpose(1, -1).squeeze(
+                    -1)
+                target_1 = one_hot_mask_1.cuda().float()
+                loss_1 = 0
+                for k in range(4):
+                    loss_0 += criteron(op_0[:, k, :, :], target_0[:, k, :, :], 4)
+                    loss_1 += criteron(op_1[:, k, :, :], target_1[:, k, :, :], 4)
+                loss_0 = loss_0 / 4
+                loss_1 = loss_1 / 4
+            else:
+                loss_0 = criteron(op_0, target_0)
+                loss_1 = criteron(op_1, target_1)
 
             loss = loss_0 + loss_1
             regressor_loss += float(loss) / 2
@@ -117,7 +133,7 @@ def train_encoder_domain_unlearn_semi(args, models, train_loaders, optimizers, c
     return av_loss, acc, av_dom, np.NaN
 
 
-def val_encoder_domain_unlearn_semi(args, models, val_loaders, criterions):
+def val_encoder_domain_unlearn_semi(args, models, val_loaders, criterions, problem):
     cuda = torch.cuda.is_available()
 
     [encoder, regressor, domain_predictor] = models
@@ -167,11 +183,29 @@ def val_encoder_domain_unlearn_semi(args, models, val_loaders, criterions):
 
                 op_0 = output_pred[:n1]
                 target_0 = target[:n1]
-                loss_0 = criteron(op_0, target_0)
 
                 op_1 = output_pred[n1:]
                 target_1 = target[n1:]
-                loss_1 = criteron(op_1, target_1)
+
+                if problem == 'wgc':
+                    one_hot_mask_0 = torch.nn.functional.one_hot(target_0.long(), num_classes=4).transpose(1,
+                                                                                                           -1).squeeze(
+                        -1)
+                    target_0 = one_hot_mask_0.cuda().float()
+                    loss_0 = 0
+                    one_hot_mask_1 = torch.nn.functional.one_hot(target_1.long(), num_classes=4).transpose(1,
+                                                                                                           -1).squeeze(
+                        -1)
+                    target_1 = one_hot_mask_1.cuda().float()
+                    loss_1 = 0
+                    for k in range(4):
+                        loss_0 += criteron(op_0[:, k, :, :], target_0[:, k, :, :], 4)
+                        loss_1 += criteron(op_1[:, k, :, :], target_1[:, k, :, :], 4)
+                    loss_0 = loss_0 / 4
+                    loss_1 = loss_1 / 4
+                else:
+                    loss_0 = criteron(op_0, target_0)
+                    loss_1 = criteron(op_1, target_1)
 
                 loss = loss_0 + loss_1
                 val_loss += float(loss) / 2
@@ -195,7 +229,7 @@ def val_encoder_domain_unlearn_semi(args, models, val_loaders, criterions):
     return val_loss, val_acc
 
 
-def train_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoch):
+def train_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoch, problem):
     cuda = torch.cuda.is_available()
 
     [encoder, regressor, domain_predictor] = models
@@ -267,11 +301,29 @@ def train_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoc
 
                 op_0 = output_pred[:n1]
                 target_0 = target[:n1]
-                loss_0 = criteron(op_0, target_0)
 
                 op_1 = output_pred[n1:]
                 target_1 = target[n1:]
-                loss_1 = criteron(op_1, target_1)
+
+                if problem == 'wgc':
+                    one_hot_mask_0 = torch.nn.functional.one_hot(target_0.long(), num_classes=4).transpose(1,
+                                                                                                           -1).squeeze(
+                        -1)
+                    target_0 = one_hot_mask_0.cuda().float()
+                    loss_0 = 0
+                    one_hot_mask_1 = torch.nn.functional.one_hot(target_1.long(), num_classes=4).transpose(1,
+                                                                                                           -1).squeeze(
+                        -1)
+                    target_1 = one_hot_mask_1.cuda().float()
+                    loss_1 = 0
+                    for k in range(4):
+                        loss_0 += criteron(op_0[:, k, :, :], target_0[:, k, :, :], 4)
+                        loss_1 += criteron(op_1[:, k, :, :], target_1[:, k, :, :], 4)
+                    loss_0 = loss_0 / 4
+                    loss_1 = loss_1 / 4
+                else:
+                    loss_0 = criteron(op_0, target_0)
+                    loss_1 = criteron(op_1, target_1)
 
                 loss_total = (loss_0 + loss_1) / 2
                 loss_total.backward()
@@ -331,7 +383,7 @@ def train_unlearn_semi(args, models, train_loaders, optimizers, criterions, epoc
     return av_loss, acc, av_dom, av_conf
 
 
-def val_unlearn_semi(args, models, val_loaders, criterions):
+def val_unlearn_semi(args, models, val_loaders, criterions, problem):
     cuda = torch.cuda.is_available()
 
     [encoder, regressor, domain_predictor] = models
@@ -397,11 +449,29 @@ def val_unlearn_semi(args, models, val_loaders, criterions):
 
                     op_0 = output_pred[:n1]
                     target_0 = target[:n1]
-                    loss_0 = criteron(op_0, target_0)
 
                     op_1 = output_pred[n1:]
                     target_1 = target[n1:]
-                    loss_1 = criteron(op_1, target_1)
+
+                    if problem == 'wgc':
+                        one_hot_mask_0 = torch.nn.functional.one_hot(target_0.long(), num_classes=4).transpose(1,
+                                                                                                               -1).squeeze(
+                            -1)
+                        target_0 = one_hot_mask_0.cuda().float()
+                        loss_0 = 0
+                        one_hot_mask_1 = torch.nn.functional.one_hot(target_1.long(), num_classes=4).transpose(1,
+                                                                                                               -1).squeeze(
+                            -1)
+                        target_1 = one_hot_mask_1.cuda().float()
+                        loss_1 = 0
+                        for k in range(4):
+                            loss_0 += criteron(op_0[:, k, :, :], target_0[:, k, :, :], 4)
+                            loss_1 += criteron(op_1[:, k, :, :], target_1[:, k, :, :], 4)
+                        loss_0 = loss_0 / 4
+                        loss_1 = loss_1 / 4
+                    else:
+                        loss_0 = criteron(op_0, target_0)
+                        loss_1 = criteron(op_1, target_1)
 
                     loss_total = loss_0 + loss_1
                     val_loss += float(loss_total) / 2
@@ -438,6 +508,7 @@ def cmd_train(ctx):
     lr_s1 = ctx["lr_s1"]
     lr_un = ctx["lr_un"]
     experiment_name = ctx["experiment_name"]
+    out_channels = 4 if problem == 'wgc' else 1
     # out_dir = ctx["out_dir"]
     # os.makedirs(out_dir, exist_ok=True)
     # num_samples = 10
@@ -466,7 +537,7 @@ def cmd_train(ctx):
 
     # Load the model
     unet = UNet()
-    segmenter = Segmenter()
+    segmenter = Segmenter(out_channels=out_channels)
     domain_pred = domain_predictor(2)
 
     if cuda:
@@ -514,9 +585,10 @@ def cmd_train(ctx):
             print('Epoch ', epoch, '/', epochs, flush=True)
             optimizers_stage1 = [optimizer_step1]
             loss, acc, dm_loss, conf_loss = train_encoder_domain_unlearn_semi(ctx, models, train_dataloaders,
-                                                                              optimizers_stage1, criterions, epoch)
+                                                                              optimizers_stage1, criterions, epoch,
+                                                                              problem)
             torch.cuda.empty_cache()  # Clear memory cache
-            val_loss, val_acc = val_encoder_domain_unlearn_semi(ctx, models, val_dataloaders, criterions)
+            val_loss, val_acc = val_encoder_domain_unlearn_semi(ctx, models, val_dataloaders, criterions, problem)
             loss_store.append([loss, val_loss, acc, val_acc, dm_loss, conf_loss])
 
             # Save the losses each epoch so we can plot them live
@@ -533,8 +605,8 @@ def cmd_train(ctx):
             torch.cuda.empty_cache()  # Clear memory cache
             loss, acc, dm_loss, conf_loss = train_unlearn_semi(ctx, models, train_dataloaders, optimizers_un,
                                                                criterions,
-                                                               epoch)
-            val_loss, val_acc = val_unlearn_semi(ctx, models, val_dataloaders, criterions)
+                                                               epoch, problem)
+            val_loss, val_acc = val_unlearn_semi(ctx, models, val_dataloaders, criterions, problem)
 
             loss_store.append([loss, val_loss, acc, val_acc, dm_loss, conf_loss])
             np.save(LOSS_PATH, np.array(loss_store))
